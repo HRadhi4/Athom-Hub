@@ -371,7 +371,7 @@ class Hub:
             return
         match = None
         if kind == codes.KIND_IR:
-            for remote in self.store.remotes.values():
+            for remote in self._nearby_tables(receiver):
                 table = self.table_timings(remote)
                 if not table:
                     continue
@@ -397,6 +397,23 @@ class Hub:
                       "timings": max(frames, key=len)[:600]})
 
     # ------------------------------------------------------------------ AC code tables
+
+    def _nearby_tables(self, receiver: str) -> list[dict[str, Any]]:
+        """AC remotes that this receiver can belong to: sent from the same device, else from the same room.
+
+        Two ACs often share one code set, so a code heard in the living room must not move the bedroom AC."""
+        ports = {p["entity_id"]: p for p in self.ports()}
+        here = ports.get(receiver) or {}
+        same_device, same_room = [], []
+        for remote in self.store.remotes.values():
+            if not remote.get("table"):
+                continue
+            sender = ports.get(remote.get("emitter_ir") or "") or {}
+            if sender.get("device_id") and sender.get("device_id") == here.get("device_id"):
+                same_device.append(remote)
+            elif sender.get("area") and sender.get("area") == here.get("area"):
+                same_room.append(remote)
+        return same_device or same_room
 
     def table_timings(self, remote: dict[str, Any]) -> dict[tuple, list[int]] | None:
         """Every code of a remote's AC code table, decoded once."""
