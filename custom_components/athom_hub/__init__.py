@@ -38,6 +38,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         async_register_websocket(hass)
         hass.data[f"{DOMAIN}_static"] = True
 
+    # The file's date in the address makes browsers fetch the new page after every update.
+    panel_file = Path(__file__).parent / "panel" / "athom-hub-panel.js"
+    stamp = await hass.async_add_executor_job(lambda: int(panel_file.stat().st_mtime))
     if PANEL_URL not in hass.data.get(frontend.DATA_PANELS, {}):
         await panel_custom.async_register_panel(
             hass,
@@ -45,7 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             webcomponent_name=PANEL_ELEMENT,
             sidebar_title=PANEL_TITLE,
             sidebar_icon=PANEL_ICON,
-            module_url=f"{STATIC_URL}/athom-hub-panel.js?v={VERSION}",
+            module_url=f"{STATIC_URL}/athom-hub-panel.js?v={VERSION}-{stamp}",
             require_admin=True,
             config={"version": VERSION},
         )
