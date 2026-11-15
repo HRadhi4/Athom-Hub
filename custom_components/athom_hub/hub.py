@@ -36,7 +36,10 @@ def _is_rf(entity_id: str, name: str) -> bool:
     """Some firmware lists its 433 MHz side as an "infrared" entity: tell by the name."""
     if entity_id.startswith(f"{RF_DOMAIN}."):
         return True
-    return bool(_RF_WORDS.search(f"{entity_id} {name}".lower().replace("_", " ")))
+    text = f"{entity_id} {name}".lower().replace("_", " ")
+    # A device called "RF/IR remote" says nothing about this one part of it.
+    text = re.sub(r"(rf|ir)\s*[/& ]\s*(rf|ir)", " ", text)
+    return bool(_RF_WORDS.search(text))
 
 
 class Hub:
