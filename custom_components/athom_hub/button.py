@@ -6,11 +6,11 @@ from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import icons
+from .entity import device_info
 from .const import DOMAIN, SIGNAL_REMOTES_CHANGED
 from .hub import Hub
 
@@ -75,12 +75,7 @@ class RemoteButton(ButtonEntity):
         self._attr_icon, colour = icons.for_button(button, remote.get("kind"))
         # Dashboards can colour the button the same way the Athom Hub page does.
         self._attr_extra_state_attributes = {"colour": colour, "remote": remote["name"]}
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, remote["id"])},
-            name=remote["name"],
-            manufacturer="Athom Hub",
-            model=KIND_NAMES.get(remote.get("kind"), "Remote"),
-        )
+        self._attr_device_info = device_info(remote)
 
     @callback
     def refresh(self, remote: dict, button: dict) -> None:

@@ -11,7 +11,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
-from . import codes, icons
+from . import codes, icons, roles
 from .const import DOMAIN, LEARN_SECONDS, LEARN_SETTLE_SECONDS, REMOTE_KINDS, VERSION
 from .hub import Hub, HubError
 from .store import new_id
@@ -45,7 +45,7 @@ async def ws_overview(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dic
     return {"version": VERSION, "ports": hub.ports(), "devices": hub.devices(), "remotes": hub.remotes_public(),
             "defaults": hub.default_emitters(), "kinds": REMOTE_KINDS,
             "broadlinks": hub.broadlink_senders(),
-            "icon_choices": icons.CHOICES, "colours": icons.COLOURS}
+            "icon_choices": icons.CHOICES, "colours": icons.COLOURS, "role_names": roles.ROLE_NAMES, "kind_roles": roles.KIND_ROLES}
 
 
 @_command({vol.Required("type"): "athom_hub/self_test", vol.Required("emitter"): str, vol.Required("receiver"): str,
@@ -55,10 +55,11 @@ async def ws_self_test(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> di
 
 
 @_command({vol.Required("type"): "athom_hub/remote_save", vol.Optional("remote_id"): str, vol.Optional("name"): str, vol.Optional("kind"): str,
-           vol.Optional("emitter_ir"): vol.Any(str, None), vol.Optional("emitter_rf"): vol.Any(str, None)})
+           vol.Optional("emitter_ir"): vol.Any(str, None), vol.Optional("emitter_rf"): vol.Any(str, None),
+           vol.Optional("temp_sensor"): vol.Any(str, None)})
 async def ws_remote_save(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
     """Make a remote, or change its name, picture or where it sends from."""
-    data = {k: msg[k] for k in ("name", "kind", "emitter_ir", "emitter_rf") if k in msg}
+    data = {k: msg[k] for k in ("name", "kind", "emitter_ir", "emitter_rf", "temp_sensor") if k in msg}
     if msg.get("remote_id"):
         hub.store.remote(msg["remote_id"])
         data["id"] = msg["remote_id"]
@@ -79,7 +80,7 @@ async def ws_remote_delete(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -
 
 @_command({vol.Required("type"): "athom_hub/button_save", vol.Required("remote_id"): str, vol.Optional("button_id"): str,
            vol.Optional("name"): str, vol.Optional("token"): str, vol.Optional("sends"): vol.Coerce(int),
-           vol.Optional("icon"): vol.Any(str, None), vol.Optional("colour"): vol.Any(str, None)})
+           vol.Optional("icon"): vol.Any(str, None), vol.Optional("colour"): vol.Any(str, None), vol.Optional("role"): vol.Any(str, None)})
 async def ws_button_save(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
     button = await hub.async_save_button(msg["remote_id"], msg)
     return {"button_id": button["id"], "name": button["name"]}

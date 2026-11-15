@@ -58,7 +58,7 @@ class HubStore:
         remote["name"] = clean_name(data.get("name", remote.get("name")), "Remote")
         kind = data.get("kind", remote.get("kind"))
         remote["kind"] = kind if kind in REMOTE_KINDS else "other"
-        for key in ("emitter_ir", "emitter_rf"):
+        for key in ("emitter_ir", "emitter_rf", "temp_sensor"):
             if key in data or key not in remote:
                 remote[key] = data.get(key) or None
         self.remotes[remote_id] = remote

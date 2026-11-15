@@ -14,7 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from . import codes, icons
+from . import codes, icons, roles
 from .const import DEFAULT_SENDS, DOMAIN, SIGNAL_REMOTES_CHANGED
 from .store import HubStore, clean_name, new_id
 
@@ -50,6 +50,8 @@ class Hub:
         self.store = HubStore(hass)
         # Codes just learned, waiting to be tested or saved: {token: {"kind", "timings", "carrier"}}
         self.learned: dict[str, dict[str, Any]] = {}
+        # Which button of a role goes next (a role with two buttons uses them in turn, like a Broadlink "toggle").
+        self._turn: dict[tuple[str, str], int] = {}
 
     async def async_load(self) -> None:
         await self.store.async_load()
@@ -263,6 +265,17 @@ class Hub:
 
         await radio_frequency.async_send_command(self.hass, emitter, _Raw(codes.tidy(timings)))
 
+    async def async_press_role(self, remote_id: str, role: str) -> None:
+        remote = self.store.remote(remote_id)
+        buttons = roles.buttons_by_role(remote).get(role) or []
+        if not buttons:
+            raise HubError(f"{remote['name']} has no “{roles.ROLE_NAMES.get(role, role)}” button. Learn it, or choose it on a button in Athom Hub.")
+        key = (remote_id, role)
+        index = self._turn.get(key, 0) % len(buttons)
+        self._turn[key] = index + 1
+        button = buttons[index]
+        await self.async_send(remote.get(f"emitter_{button.get('kind', 'ir')}"), button)
+
     async def async_press(self, remote_id: str, button_id: str) -> None:
         remote = self.store.remote(remote_id)
         button = self.store.button(remote_id, button_id)
@@ -310,14 +323,24 @@ class Hub:
         out = []
         for remote in self.store.remotes.values():
             out.append({
-                **{k: remote.get(k) for k in ("id", "name", "kind", "emitter_ir", "emitter_rf")},
+                **{k: remote.get(k) for k in ("id", "name", "kind", "emitter_ir", "emitter_rf", "temp_sensor")},
+                "platform": roles.platform_for(remote),
+                "entity": self._main_entity(remote),
                 "buttons": [{"id": b["id"], "name": b["name"], "kind": b.get("kind", "ir"), "sends": b.get("sends"),
                              "source": b.get("source"), "icon_set": b.get("icon"), "colour_set": b.get("colour"),
+                             "role": roles.role_of(b, remote.get("kind")), "role_set": b.get("role"),
                              **dict(zip(("icon", "colour"), icons.for_button(b, remote.get("kind")))),
                              **codes.describe(b.get("timings") or [])} for b in remote["buttons"]],
             })
         out.sort(key=lambda r: r["name"].lower())
         return out
+
+    @callback
+    def _main_entity(self, remote: dict[str, Any]) -> str | None:
+        platform = roles.platform_for(remote)
+        if not platform:
+            return None
+        return er.async_get(self.hass).async_get_entity_id(platform, DOMAIN, f"{remote['id']}_main")
 
     async def async_save_button(self, remote_id: str, data: dict[str, Any]) -> dict[str, Any]:
         remote = self.store.remote(remote_id)
@@ -336,6 +359,8 @@ class Hub:
             button.update(self.learned.pop(token))
         if "name" in data or not button.get("name"):
             button["name"] = self.store.unique_button_name(remote, clean_name(data.get("name"), "Button"), button["id"])
+        if "role" in data:
+            button["role"] = data["role"] if data["role"] in (*roles.ROLE_NAMES, "none") else None
         if "icon" in data:
             button["icon"] = data["icon"] if data["icon"] in icons.CHOICES else None
         if "colour" in data:

@@ -19,7 +19,7 @@ from .const import DOMAIN, PANEL_ELEMENT, PANEL_ICON, PANEL_TITLE, PANEL_URL, ST
 from .hub import Hub
 from .websocket import async_register_websocket
 
-PLATFORMS = [Platform.BUTTON]
+PLATFORMS = [Platform.BUTTON, Platform.CLIMATE, Platform.COVER, Platform.MEDIA_PLAYER, Platform.FAN, Platform.LIGHT]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
