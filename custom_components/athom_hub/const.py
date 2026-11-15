@@ -1,7 +1,7 @@
 """Names used across Athom Hub."""
 
 DOMAIN = "athom_hub"
-VERSION = "0.4.0"
+VERSION = "0.5.0"
 
 STORAGE_KEY = DOMAIN
 STORAGE_VERSION = 1
@@ -24,3 +24,7 @@ LEARN_SETTLE_SECONDS = 0.7
 DEFAULT_SENDS = {"ir": 1, "rf": 6}
 
 REMOTE_KINDS = ["tv", "ac", "fan", "curtain", "light", "audio", "other"]
+
+SIGNAL_SETTING_HEARD = f"{DOMAIN}_setting_heard"
+# SmartIR's public library of air conditioner code files (what SmartIR itself downloads from).
+SMARTIR_RAW = "https://raw.githubusercontent.com/smartHomeHub/SmartIR/master"

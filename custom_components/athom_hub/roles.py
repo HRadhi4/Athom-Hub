@@ -118,6 +118,8 @@ def buttons_by_role(remote: dict) -> dict[str, list[dict]]:
 
 def platform_for(remote: dict) -> str | None:
     """Which Home Assistant entity this remote becomes, if it has the buttons for it."""
+    if remote.get("table"):
+        return "climate"
     platform = KIND_PLATFORM.get(remote.get("kind", "other"))
     if not platform:
         return None

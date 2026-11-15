@@ -273,3 +273,17 @@ def heard_frame(captures: list[list[int]], frame: list[int]) -> bool:
     """Did any capture contain this frame?"""
     want = tidy(frame)
     return any(similar(want, piece) for capture in captures for piece in split_frames(capture))
+
+
+def best_match(captures: list[list[int]], candidates: dict) -> object | None:
+    """Which of the candidate codes ({key: timings}) was heard, if any (the closest one)."""
+    best, best_score = None, None
+    pieces = [piece for capture in captures for piece in split_frames(capture)]
+    for key, timings in candidates.items():
+        want = tidy(timings)
+        for piece in pieces:
+            if similar(want, piece):
+                score = sum(abs(abs(x) - abs(y)) for x, y in zip(want[:-1], piece))
+                if best_score is None or score < best_score:
+                    best, best_score = key, score
+    return best

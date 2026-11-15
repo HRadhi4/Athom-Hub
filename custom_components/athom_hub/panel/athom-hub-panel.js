@@ -290,6 +290,7 @@ class AthomHubPanel extends HTMLElement {
           <span class="tile" style="min-height:0;padding:0;border:0;background:none;cursor:default"><span class="ic"><ha-icon icon="${icon}"></ha-icon></span></span>
           <div class="grow"><h2>${esc(r.name)}</h2><div class="s">${esc(kname)} · sends from ${from}</div></div>
         </div>
+        ${r.table ? `<p class="note" style="margin-bottom:0">Full air conditioner code set: ${esc(r.table.maker)} ${esc((r.table.models || []).join(", "))} · ${r.table.codes} codes (${esc(r.table.source || "")}). Every change sends the whole setting, and presses of the real remote near an Athom are followed.</p>` : ""}
         ${this.vMainEntity(r)}
       </div>
       ${r.buttons.length
@@ -388,7 +389,9 @@ class AthomHubPanel extends HTMLElement {
         </div>` : ""}
       </div>`;
     }).join("");
-    return `<p class="note" style="margin-top:0">Remotes a Broadlink learned through Home Assistant. Copy one, then press each button once to check it.</p>
+    return `${this.vAcSets()}
+      <div class="sec">Remotes learned by a Broadlink</div>
+      <p class="note" style="margin-top:0">Remotes a Broadlink learned through Home Assistant. Copy one, then press each button once to check it.</p>
       <div class="list">${items || `<div class="card empty"><h2>Nothing to copy</h2><p>No remotes learned by a Broadlink were found in Home Assistant.</p></div>`}</div>
       <div class="card" style="margin-top:14px"><h3>Good to know</h3>
         <p>Remotes learned only in the Broadlink phone app are not in Home Assistant, so they cannot be copied. Learn those buttons again here.</p>
@@ -454,6 +457,8 @@ class AthomHubPanel extends HTMLElement {
     }
     if (sh.type === "learn") return this.vLearn(sh);
     if (sh.type === "device") return this.vDevice(sh);
+    if (sh.type === "acCopy") return this.vAcCopy(sh);
+    if (sh.type === "acFind") return this.vAcFind(sh);
     return "";
   }
 
@@ -528,7 +533,7 @@ class AthomHubPanel extends HTMLElement {
       case "back": s.remote = null; s.edit = false; this.render(); return;
       case "edit": s.edit = !s.edit; this.render(); return;
       case "toggle": s.open[ds.id] = !s.open[ds.id]; this.render(); return;
-      case "shade": case "close": this.stopLearn(); s.sheet = null; this.render(); return;
+      case "shade": case "close": this.stopLearn(); this.stopFind(); s.sheet = null; this.render(); return;
       case "newRemote": s.sheet = { type: "newRemote" }; this.render(); return;
       case "remoteSettings": s.sheet = { type: "remoteSettings" }; this.render(); return;
       case "pickKind": s.sheet.name = this.val("rname"); s.sheet.kind = ds.k; this.render(); return;
@@ -1035,6 +1040,27 @@ Object.assign(AthomHubPanel.prototype, {
         return;
       }
       case "zonePick": sh.zone = +ds.k; this.render(); return;
+      case "acCopyOpen": {
+        const c = s.sir.configured[+ds.i];
+        const existing = (s.data.remotes || []).find((r) => r.kind === "ac" && r.name.toLowerCase().includes((c.name.match(/bed|living/i) || [""])[0].toLowerCase()) && /bed|living/i.test(c.name));
+        s.sheet = { type: "acCopy", code: c.code, maker: c.maker, models: c.models, name: c.name, emitter: c.emitter, temp_sensor: this._hass.states[c.temp_sensor] ? c.temp_sensor : "", remote_id: existing?.id };
+        this.render(); return;
+      }
+      case "acFindOpen": s.sheet = { type: "acFind", step: "brand" }; this.render(); return;
+      case "acFindListen": if (sh.step === "brand") sh.brand = this.val("acbrand") || ""; await this.acListen(); return;
+      case "acFindAll": sh.brand = ""; await this.acSearch(sh.token); return;
+      case "acUseFound": {
+        const f = sh.found.find((x) => x.code === +ds.k);
+        s.sheet = { type: "acCopy", code: f.code, maker: f.maker, models: f.models, name: "Air conditioner", emitter: this.irSenders()[0]?.entity_id };
+        this.render(); return;
+      }
+      case "acCopyDo": {
+        const to = this.val("acto") || null;
+        const r = await this.run(() => this.ws("smartir_copy", { code: sh.code, name: (this.val("acname") || "").trim() || "Air conditioner", remote_id: to, emitter: this.val("acfrom") || null, temp_sensor: this.val("actemp") || null }),
+          (x) => `Done: ${x.codes} codes. It now works as a thermostat.`);
+        if (r) { s.sheet = null; await this.load(); s.tab = "remotes"; s.remote = r.remote_id; this.render(); }
+        return;
+      }
       case "zoneUndo": delete sh.draft[sh.zone || 1]; this.render(); return;
       case "zoneSave": case "zoneClear": {
         const n = sh.zone || 1;
@@ -1052,6 +1078,127 @@ Object.assign(AthomHubPanel.prototype, {
       }
       default:
     }
+  },
+});
+
+
+Object.assign(AthomHubPanel.prototype, {
+  vAcSets() {
+    const sir = this.s.sir;
+    if (!sir) { this.loadSir(); return `<div class="sec">Air conditioner code sets</div><div class="card"><p>Looking for code sets…</p></div>`; }
+    const conf = sir.configured.map((c, i) => `<div class="ctl"><ha-icon icon="mdi:air-conditioner" style="color:var(--acc);flex:none"></ha-icon>
+        <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.maker || "")} ${esc((c.models || []).join(", "))} · code file ${c.code}${c.error ? ` · <span class="bad">${esc(c.error)}</span>` : ""}</div></div>
+        <button class="pill" data-a="acCopyOpen" data-i="${i}" ${c.error ? "disabled" : ""}>Copy</button></div>`).join("");
+    return `<div class="sec">Air conditioner code sets</div>
+      <div class="card">
+        <p style="margin-top:0">A code set has the code for every setting of an AC (mode, fan and temperature), from SmartIR's shared library. It turns an AC into a full thermostat, and lets Athom Hub follow the real remote.</p>
+        ${conf ? `<h3>Already set up in SmartIR</h3><div>${conf}</div>` : ""}
+        <div class="row" style="margin-top:10px"><button class="pill main" data-a="acFindOpen"><ha-icon icon="mdi:magnify"></ha-icon>Find my AC's code set</button></div>
+        ${sir.index_error ? `<p class="note bad">${esc(sir.index_error)}</p>` : `<p class="note">${sir.files} code files from ${sir.brands.length} brands.</p>`}
+      </div>`;
+  },
+
+  async loadSir() {
+    if (this._sirLoading) return;
+    this._sirLoading = true;
+    const r = await this.run(() => this.ws("smartir"));
+    this.s.sir = r || { configured: [], brands: [], files: 0, index_error: "Could not load." };
+    this._sirLoading = false;
+    this.render();
+  },
+
+  irSenders() { return this.ports("send", "ir"); },
+
+  vAcCopy(sh) {
+    const acs = (this.s.data.remotes || []).filter((r) => r.kind === "ac");
+    const temps = Object.values(this._hass.states).filter((x) => x.attributes.device_class === "temperature" && x.entity_id.startsWith("sensor."))
+      .sort((a, b) => (a.attributes.friendly_name || "").localeCompare(b.attributes.friendly_name || ""));
+    return `<h2>Use code set ${sh.code}</h2>
+      <p>${esc(sh.maker || "")} ${esc((sh.models || []).join(", "))}</p>
+      <label for="acto">Put it on</label>
+      <select id="acto"><option value="">A new remote</option>${acs.map((r) => `<option value="${r.id}" ${sh.remote_id === r.id ? "selected" : ""}>${esc(r.name)} (keeps its buttons)</option>`).join("")}</select>
+      <label for="acname">Name (for a new remote)</label><input id="acname" value="${esc(sh.name || "")}" maxlength="60">
+      <label for="acfrom">Sends from</label>
+      <select id="acfrom">${this.irSenders().map((p) => `<option value="${esc(p.entity_id)}" ${p.entity_id === sh.emitter ? "selected" : ""}>${esc(p.device_name)}${p.area ? " · " + esc(p.area) : ""}</option>`).join("")}</select>
+      <p class="note">Choose the device that can see this AC.</p>
+      <label for="actemp">Room temperature from</label>
+      <select id="actemp"><option value="">No sensor</option>${temps.map((x) => `<option value="${esc(x.entity_id)}" ${x.entity_id === sh.temp_sensor ? "selected" : ""}>${esc(x.attributes.friendly_name || x.entity_id)}</option>`).join("")}</select>
+      <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="pill" data-a="close">Cancel</button><button class="pill main" data-a="acCopyDo">Use it</button></div>`;
+  },
+
+  vAcFind(sh) {
+    const brands = this.s.sir?.brands || [];
+    if (sh.step === "brand") {
+      return `<h2>Find my AC's code set</h2>
+        <p>Athom Hub listens to your real AC remote, then looks for that exact code in SmartIR's library.</p>
+        <label for="acbrand">Brand of the AC</label>
+        <select id="acbrand"><option value="">I don't know (search everything, takes a few minutes)</option>${brands.map((b) => `<option value="${esc(b)}" ${b === sh.brand ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>
+        <p class="note">Many brands are made by another company. If your brand is not listed, choose “I don't know”.</p>
+        <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="pill" data-a="close">Cancel</button><button class="pill main" data-a="acFindListen">Next</button></div>`;
+    }
+    if (sh.step === "listen") {
+      return `<div class="center"><h2>Press your AC remote now</h2>
+        <div class="pulse"><ha-icon icon="mdi:remote"></ha-icon></div>
+        <p>Point the AC remote at the Athom from about 30 cm and press <b>Power</b> once. Any button works; the AC may switch on or off.</p>
+        ${sh.count ? `<p class="note">Hearing something… (${sh.count})</p>` : ""}
+        <button class="pill" data-a="close">Stop</button></div>`;
+    }
+    if (sh.step === "timeout") {
+      return `<h2>Nothing clear was heard</h2><p>Come closer and point straight at the Athom.</p>
+        <div class="row" style="justify-content:flex-end"><button class="pill" data-a="close">Cancel</button><button class="pill main" data-a="acFindListen">Try again</button></div>`;
+    }
+    if (sh.step === "search") {
+      const pc = sh.total ? Math.round((100 * sh.done) / sh.total) : 0;
+      return `<div class="center"><h2>Searching the library…</h2><div class="big">${pc}%</div>
+        <p class="note">${sh.done || 0} of ${sh.total || "…"} code files${sh.brand ? ` from ${esc(sh.brand)}` : ""}.</p></div>`;
+    }
+    if (sh.step === "found") {
+      if (!sh.found.length) {
+        return `<h2>No code set has that code</h2>
+          <p>${sh.brand ? `None of the ${esc(sh.brand)} files matched. Try “I don't know” to search every brand.` : "Your AC is not in SmartIR's library. You can still learn its buttons one by one in a new remote (power, cool, temperature up and down)."}</p>
+          <div class="row" style="justify-content:flex-end"><button class="pill" data-a="close">Close</button>${sh.brand ? `<button class="pill main" data-a="acFindAll">Search every brand</button>` : ""}</div>`;
+      }
+      return `<h2>Found ${sh.found.length === 1 ? "it" : sh.found.length + " matches"} ✓</h2>
+        <p>Your remote sent: <b>${esc(sh.found[0].setting)}</b>.</p>
+        <div class="card" style="padding:4px 16px">${sh.found.map((f) => `<div class="ctl"><div class="grow"><div class="t">Code set ${f.code} · ${esc(f.maker)}</div><div class="s">${esc((f.models || []).join(", "))} · ${f.codes} codes</div></div><button class="pill main" data-a="acUseFound" data-k="${f.code}">Use</button></div>`).join("")}</div>
+        <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="pill" data-a="close">Close</button></div>`;
+    }
+    if (sh.step === "error") return `<h2>That did not work</h2><p>${esc(sh.why)}</p><div class="row" style="justify-content:flex-end"><button class="pill" data-a="close">Close</button></div>`;
+    return "";
+  },
+
+  stopFind() {
+    if (this._findUnsub) { try { this._findUnsub(); } catch { /* closed */ } this._findUnsub = null; }
+  },
+
+  async acListen() {
+    const s = this.s, sh = s.sheet;
+    const receiver = this.ports("receive", "ir")[0]?.entity_id;
+    if (!receiver) { s.sheet = { ...sh, step: "error", why: "No infrared receiver was found." }; this.render(); return; }
+    this.stopLearn();
+    sh.step = "listen"; sh.count = 0; this.render();
+    try {
+      this._unsub = await this._hass.connection.subscribeMessage((ev) => {
+        if (s.sheet !== sh) return;
+        if (ev.state === "heard") { sh.count = ev.count; this.render(); }
+        else if (ev.state === "timeout") { this.stopLearn(); sh.step = "timeout"; this.render(); }
+        else if (ev.state === "done") { this.stopLearn(); this.acSearch(ev.token); }
+      }, { type: "athom_hub/learn", receiver, kind: "ir" });
+    } catch (e) { sh.step = "error"; sh.why = e.message || "Could not listen."; this.render(); }
+  },
+
+  async acSearch(token) {
+    const s = this.s, sh = s.sheet;
+    sh.token = token; sh.step = "search"; sh.done = 0; sh.total = 0; this.render();
+    this.stopFind();
+    try {
+      this._findUnsub = await this._hass.connection.subscribeMessage((ev) => {
+        if (s.sheet !== sh) return;
+        if (ev.state === "searching") { sh.done = ev.done; sh.total = ev.total; const big = this.shadowRoot.querySelector(".big"); if (big && ev.done % 3) { big.textContent = Math.round((100 * ev.done) / ev.total) + "%"; } else this.render(); }
+        else if (ev.state === "done") { this.stopFind(); sh.step = "found"; sh.found = ev.found; this.render(); }
+        else if (ev.state === "error") { this.stopFind(); sh.step = "error"; sh.why = ev.why; this.render(); }
+      }, { type: "athom_hub/smartir_find", token, brand: sh.brand || null });
+    } catch (e) { sh.step = "error"; sh.why = e.message || "The search could not start."; this.render(); }
   },
 });
 

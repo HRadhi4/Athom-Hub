@@ -142,7 +142,9 @@ async def ws_restore(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict
     for item in msg["remotes"]:
         if not isinstance(item, dict) or not isinstance(item.get("buttons"), list):
             continue
-        remote = hub.store.upsert_remote({k: item.get(k) for k in ("id", "name", "kind", "emitter_ir", "emitter_rf")})
+        remote = hub.store.upsert_remote({k: item.get(k) for k in ("id", "name", "kind", "emitter_ir", "emitter_rf", "temp_sensor")})
+        if isinstance(item.get("table"), dict) and item["table"].get("codes"):
+            remote["table"] = item["table"]
         remote["buttons"] = []
         for b in item["buttons"]:
             timings = [int(v) for v in (b.get("timings") or []) if isinstance(v, (int, float))]
@@ -255,8 +257,68 @@ def ws_log_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnec
     connection.send_result(msg["id"])
 
 
+@_command({vol.Required("type"): "athom_hub/smartir"})
+async def ws_smartir(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
+    """The SmartIR air conditioners set up here, and the brands in SmartIR's library."""
+    configured = await hub.async_smartir_configured()
+    for item in configured:
+        item["emitter"] = hub.suggest_emitter(item.get("controller"))
+        try:
+            data = await hub.async_smartir_file(item["code"])
+            item["maker"] = data.get("manufacturer", "")
+            item["models"] = data.get("supportedModels", [])[:4]
+        except HubError as err:
+            item["error"] = str(err)
+    try:
+        index = await hub.async_smartir_index()
+        brands = sorted({i["brand"] for i in index}, key=str.lower)
+        error = None
+    except HubError as err:
+        index, brands, error = [], [], str(err)
+    return {"configured": configured, "brands": brands, "files": len(index), "index_error": error}
+
+
+@_command({vol.Required("type"): "athom_hub/smartir_copy", vol.Required("code"): vol.Coerce(int), vol.Optional("name"): str,
+           vol.Optional("remote_id"): vol.Any(str, None), vol.Optional("emitter"): vol.Any(str, None),
+           vol.Optional("temp_sensor"): vol.Any(str, None)})
+async def ws_smartir_copy(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
+    return await hub.async_table_copy(msg["code"], msg.get("name"), msg.get("remote_id"), msg.get("emitter"), msg.get("temp_sensor"))
+
+
+@websocket_api.websocket_command({vol.Required("type"): "athom_hub/smartir_find", vol.Required("token"): str,
+                                  vol.Optional("brand"): vol.Any(str, None)})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_smartir_find(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Search SmartIR's library for the code a real remote just sent. Sends progress, then the result."""
+    try:
+        hub = _hub(hass)
+        learned = hub.learned.get(msg["token"])
+        if learned is None or learned["kind"] != codes.KIND_IR:
+            raise HubError("Press the remote again: the code was not kept.")
+        index = await hub.async_smartir_index()
+        brand = (msg.get("brand") or "").strip().lower()
+        numbers = [i["code"] for i in index if not brand or i["brand"].lower() == brand]
+        if not numbers:
+            raise HubError("No code files for that brand.")
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "athom_hub", str(err))
+        return
+    connection.send_result(msg["id"])
+
+    @callback
+    def _progress(done: int, total: int) -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], {"state": "searching", "done": done, "total": total}))
+
+    try:
+        found = await hub.async_smartir_find(learned["timings"], numbers, _progress)
+        connection.send_message(websocket_api.event_message(msg["id"], {"state": "done", "found": found, "searched": len(numbers)}))
+    except HomeAssistantError as err:
+        connection.send_message(websocket_api.event_message(msg["id"], {"state": "error", "why": str(err)}))
+
+
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
     for handler in (ws_overview, ws_remote_save, ws_remote_delete, ws_button_save, ws_button_delete, ws_button_order,
-                    ws_press, ws_test, ws_broadlink, ws_broadlink_copy, ws_backup, ws_restore, ws_learn, ws_self_test, ws_log, ws_log_clear, ws_log_subscribe):
+                    ws_press, ws_test, ws_broadlink, ws_broadlink_copy, ws_backup, ws_restore, ws_learn, ws_self_test, ws_log, ws_log_clear, ws_log_subscribe, ws_smartir, ws_smartir_copy, ws_smartir_find):
         websocket_api.async_register_command(hass, handler)

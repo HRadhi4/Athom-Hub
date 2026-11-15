@@ -10,7 +10,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.event import async_track_state_change_event
+
+from .const import SIGNAL_SETTING_HEARD
 
 from .entity import RemoteEntity, async_setup_remote_platform, restored
 
@@ -27,9 +30,6 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
     """Modes, temperature, fan and swing, as far as the learned buttons allow."""
 
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_min_temp = 16
-    _attr_max_temp = 30
-    _attr_target_temperature_step = 1
 
     def __init__(self, hub, remote) -> None:
         super().__init__(hub, remote)
@@ -51,6 +51,31 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
             self._swing = restored(last, "swing_mode", "off") or "off"
             self._last_on = HVACMode(restored(last, "last_on", "cool")) if restored(last, "last_on") in [m.value for m in HVACMode] else None
         self._follow_sensor()
+        if self.table and self._fan is None:
+            self._fan = "auto" if "auto" in self.table["fans"] else (self.table["fans"] or [None])[0]
+        self.async_on_remove(async_dispatcher_connect(self.hass, SIGNAL_SETTING_HEARD, self._heard_setting))
+
+    @property
+    def table(self) -> dict | None:
+        return self.remote.get("table")
+
+    @callback
+    def _heard_setting(self, remote_id: str, key: tuple) -> None:
+        """The real remote (or Athom Hub itself) just sent a full setting: show it."""
+        if remote_id != self._remote_id:
+            return
+        if key[0] == "off":
+            self._mode = HVACMode.OFF
+        else:
+            try:
+                self._mode = HVACMode(key[0])
+            except ValueError:
+                return
+            self._last_on = self._mode
+            self._fan = key[1]
+            if key[2] is not None:
+                self._target = float(key[2])
+        self.async_write_ha_state()
 
     async def async_will_remove_from_hass(self) -> None:
         if self._unsub_sensor:
@@ -76,13 +101,32 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
 
     # ---------------------------------------------------------------- what it can do
     @property
+    def min_temp(self) -> float:
+        return float(self.table["min"]) if self.table else 16.0
+
+    @property
+    def max_temp(self) -> float:
+        return float(self.table["max"]) if self.table else 30.0
+
+    @property
+    def target_temperature_step(self) -> float:
+        return float(self.table["step"]) if self.table else 1.0
+
+    @property
     def hvac_modes(self) -> list[HVACMode]:
+        if self.table:
+            return [HVACMode.OFF, *[HVACMode(m) for m in self.table["modes"] if m in [x.value for x in HVACMode]]]
         modes = [m for m, role in MODE_ROLES.items() if self.has(role)]
         return [HVACMode.OFF, *(modes or [HVACMode.COOL])]
 
     @property
     def supported_features(self) -> ClimateEntityFeature:
         f = ClimateEntityFeature.TURN_ON | ClimateEntityFeature.TURN_OFF
+        if self.table:
+            f |= ClimateEntityFeature.TARGET_TEMPERATURE
+            if self.table["fans"]:
+                f |= ClimateEntityFeature.FAN_MODE
+            return f
         if self.has("temp_up") and self.has("temp_down"):
             f |= ClimateEntityFeature.TARGET_TEMPERATURE
         if self.fan_modes:
@@ -93,11 +137,15 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
 
     @property
     def fan_modes(self) -> list[str] | None:
+        if self.table:
+            return list(self.table["fans"]) or None
         modes = [m for m, role in FAN_ROLES.items() if self.has(role)]
         return modes or None
 
     @property
     def swing_modes(self) -> list[str] | None:
+        if self.table:
+            return None
         return ["off", "on"] if self.has("swing") else None
 
     # ---------------------------------------------------------------- what it is doing
@@ -107,7 +155,7 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
 
     @property
     def target_temperature(self) -> float | None:
-        return self._target if self.has("temp_up") and self.has("temp_down") else None
+        return self._target if self.table or (self.has("temp_up") and self.has("temp_down")) else None
 
     @property
     def current_temperature(self) -> float | None:
@@ -123,14 +171,28 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
 
     @property
     def swing_mode(self) -> str | None:
-        return self._swing if self.has("swing") else None
+        return None if self.table else (self._swing if self.has("swing") else None)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"last_on": self._last_on.value if self._last_on else None}
 
     # ---------------------------------------------------------------- changing it
+    async def _send_table(self, mode: HVACMode) -> None:
+        fan, temp = await self._hub.async_send_setting(self._remote_id, mode.value, self._fan, self._target)
+        if mode != HVACMode.OFF:
+            self._fan = fan or self._fan
+            if temp is not None:
+                self._target = float(temp)
+
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+        if self.table:
+            await self._send_table(hvac_mode)
+            self._mode = hvac_mode
+            if hvac_mode != HVACMode.OFF:
+                self._last_on = hvac_mode
+            self.async_write_ha_state()
+            return
         was_off = self._mode == HVACMode.OFF
         if hvac_mode == HVACMode.OFF:
             await self.power(False, not was_off)
@@ -160,6 +222,12 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
         if target is None:
             return
         target = max(self.min_temp, min(self.max_temp, float(target)))
+        if self.table:
+            self._target = target
+            if self._mode != HVACMode.OFF:
+                await self._send_table(self._mode)
+            self.async_write_ha_state()
+            return
         steps = round(target - self._target)
         if steps:
             await self.send("temp_up" if steps > 0 else "temp_down", abs(steps))
@@ -167,6 +235,12 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
         self.async_write_ha_state()
 
     async def async_set_fan_mode(self, fan_mode: str) -> None:
+        if self.table:
+            self._fan = fan_mode
+            if self._mode != HVACMode.OFF:
+                await self._send_table(self._mode)
+            self.async_write_ha_state()
+            return
         if fan_mode in FAN_ROLES and self.has(FAN_ROLES[fan_mode]):
             await self.send(FAN_ROLES[fan_mode])
             self._fan = fan_mode

@@ -16,8 +16,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from . import codes, icons, roles
-from .const import DEFAULT_SENDS, DOMAIN, SIGNAL_LOG, SIGNAL_REMOTES_CHANGED
+from . import codes, icons, roles, smartir
+from .const import DEFAULT_SENDS, DOMAIN, SIGNAL_LOG, SIGNAL_REMOTES_CHANGED, SIGNAL_SETTING_HEARD, SMARTIR_RAW
 from .store import HubStore, clean_name, new_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -58,6 +58,9 @@ class Hub:
         self.log: deque[dict[str, Any]] = deque(maxlen=200)
         self._watching: dict[str, Any] = {}
         self._bursts: dict[str, dict[str, Any]] = {}
+        self._tables: dict[str, tuple[int, dict[tuple, list[int]]]] = {}
+        self._smartir_index: tuple[float, list[dict[str, Any]]] | None = None
+        self._smartir_files: dict[int, dict[str, Any]] = {}
 
     async def async_load(self) -> None:
         await self.store.async_load()
@@ -367,7 +370,17 @@ class Hub:
         if not frames:
             return
         match = None
-        for remote in self.store.remotes.values():
+        if kind == codes.KIND_IR:
+            for remote in self.store.remotes.values():
+                table = self.table_timings(remote)
+                if not table:
+                    continue
+                key = codes.best_match(captures, table)
+                if key is not None:
+                    async_dispatcher_send(self.hass, SIGNAL_SETTING_HEARD, remote["id"], key)
+                    match = f"{remote['name']} · {smartir.describe_setting(key)}"
+                    break
+        for remote in [] if match else self.store.remotes.values():
             for button in remote["buttons"]:
                 if button.get("kind") == kind and button.get("timings") and codes.heard_frame(captures, button["timings"]):
                     match = f"{remote['name']} · {button['name']}"
@@ -382,6 +395,190 @@ class Hub:
                       "via": via, "kind": kind, "known": bool(match), "pulses": codes.describe(frames[0])["pulses"],
                       # the longest frame, so an unknown signal can be compared or saved later
                       "timings": max(frames, key=len)[:600]})
+
+    # ------------------------------------------------------------------ AC code tables
+
+    def table_timings(self, remote: dict[str, Any]) -> dict[tuple, list[int]] | None:
+        """Every code of a remote's AC code table, decoded once."""
+        table = remote.get("table")
+        if not table:
+            return None
+        stamp = id(table)
+        cached = self._tables.get(remote["id"])
+        if cached and cached[0] == stamp:
+            return cached[1]
+        decoded = {}
+        for key, text in smartir.all_codes(table).items():
+            try:
+                decoded[key] = codes.broadlink_decode(text)["timings"]
+            except codes.CodeError:
+                continue
+        self._tables[remote["id"]] = (stamp, decoded)
+        return decoded
+
+    async def async_send_setting(self, remote_id: str, mode: str, fan: str | None, temp: float | None) -> tuple[str, int | None]:
+        """Send the full setting (mode, fan, temperature) of an AC with a code table."""
+        remote = self.store.remote(remote_id)
+        table = remote.get("table")
+        if not table:
+            raise HubError(f"{remote['name']} has no air conditioner code set.")
+        text, use_fan, use_temp = smartir.code_for(table, mode, fan, temp)
+        code = codes.broadlink_decode(text)
+        code["sends"] = code["repeat"] + 1
+        key = ("off",) if mode == "off" else (mode, use_fan, use_temp)
+        await self.async_send(remote.get("emitter_ir"), code, f"{remote['name']} · {smartir.describe_setting(key)}")
+        return use_fan, use_temp
+
+    async def _fetch(self, url: str) -> str:
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession  # noqa: PLC0415
+
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(url, timeout=30) as resp:
+                if resp.status != 200:
+                    raise HubError(f"The SmartIR library answered {resp.status}.")
+                return await resp.text()
+        except (OSError, TimeoutError) as err:
+            raise HubError("Could not reach the SmartIR library. Is Home Assistant online?") from err
+
+    async def async_smartir_index(self) -> list[dict[str, Any]]:
+        """All Broadlink AC code files in SmartIR's library, with brand and models."""
+        if self._smartir_index and time.time() - self._smartir_index[0] < 86400:
+            return self._smartir_index[1]
+        index = smartir.parse_index(await self._fetch(f"{SMARTIR_RAW}/docs/CLIMATE.md"))
+        if not index:
+            raise HubError("The SmartIR library list could not be read.")
+        self._smartir_index = (time.time(), index)
+        return index
+
+    async def async_smartir_file(self, number: int) -> dict[str, Any]:
+        """One SmartIR climate code file: from SmartIR's folder here, our own copy, or the library."""
+        if number in self._smartir_files:
+            return self._smartir_files[number]
+        local = [Path(self.hass.config.path("custom_components", "smartir", "codes", "climate", f"{number}.json")),
+                 Path(self.hass.config.path(".storage", "athom_hub_codes", f"{number}.json"))]
+
+        def _read() -> str | None:
+            for path in local:
+                if path.is_file():
+                    return path.read_text(encoding="utf-8")
+            return None
+
+        text = await self.hass.async_add_executor_job(_read)
+        if text is None:
+            text = await self._fetch(f"{SMARTIR_RAW}/codes/climate/{number}.json")
+
+            def _keep() -> None:
+                local[1].parent.mkdir(parents=True, exist_ok=True)
+                local[1].write_text(text, encoding="utf-8")
+
+            await self.hass.async_add_executor_job(_keep)
+        try:
+            data = json.loads(text)
+        except ValueError as err:
+            raise HubError(f"Code file {number} could not be read.") from err
+        if len(self._smartir_files) > 60:
+            self._smartir_files.pop(next(iter(self._smartir_files)))
+        self._smartir_files[number] = data
+        return data
+
+    async def async_smartir_configured(self) -> list[dict[str, Any]]:
+        """The SmartIR air conditioners set up in configuration.yaml."""
+        from homeassistant import config as conf_util  # noqa: PLC0415
+
+        try:
+            conf = await conf_util.async_hass_config_yaml(self.hass)
+        except HomeAssistantError:
+            return []
+        out = []
+        for item in conf.get("climate") or []:
+            if isinstance(item, dict) and item.get("platform") == "smartir" and item.get("device_code"):
+                out.append({"name": str(item.get("name") or "Air conditioner"), "code": int(item["device_code"]),
+                            "controller": item.get("controller_data"), "temp_sensor": item.get("temperature_sensor")})
+        return out
+
+    def suggest_emitter(self, controller: str | None) -> str | None:
+        """Send from an Athom in the same room as the old Broadlink, else from that Broadlink."""
+        ent_reg, dev_reg = er.async_get(self.hass), dr.async_get(self.hass)
+        entry = ent_reg.async_get(controller) if controller else None
+        device = dev_reg.async_get(entry.device_id) if entry and entry.device_id else None
+        area = entry.area_id or (device.area_id if device else None) if entry else None
+        senders = [p for p in self.ports() if p["role"] == "send" and p["kind"] == codes.KIND_IR]
+        for port in senders:
+            port_entry = ent_reg.async_get(port["entity_id"])
+            port_dev = dev_reg.async_get(port_entry.device_id) if port_entry and port_entry.device_id else None
+            port_area = (port_entry.area_id if port_entry else None) or (port_dev.area_id if port_dev else None)
+            if port["athom"] and area and port_area == area:
+                return port["entity_id"]
+        for port in senders:
+            if device and port["device_id"] == device.id:
+                return port["entity_id"]
+        return self.default_emitters()["ir"]
+
+    async def async_smartir_find(self, timings: list[int], numbers: list[int], progress) -> list[dict[str, Any]]:
+        """Which code files contain the code that was just heard."""
+        found = []
+        sem = asyncio.Semaphore(6)
+        done = [0]
+        heard = codes.tidy(timings)
+
+        def _check(data: dict[str, Any]) -> tuple | None:
+            try:
+                table = smartir.table_from_smartir(data)
+            except (smartir.TableError, codes.CodeError, ValueError, TypeError, KeyError):
+                return None
+            try:
+                off = codes.broadlink_decode(table["codes"]["off"])["timings"]
+            except codes.CodeError:
+                return None
+            if abs(len(off) - len(heard)) > max(6, len(heard) // 5):
+                return None                       # a different kind of code: skip quickly
+            candidates = {}
+            for key, text in smartir.all_codes(table).items():
+                try:
+                    candidates[key] = codes.broadlink_decode(text)["timings"]
+                except codes.CodeError:
+                    continue
+            key = codes.best_match([timings], candidates)
+            return (key, table) if key is not None else None
+
+        async def _one(number: int) -> None:
+            async with sem:
+                try:
+                    data = await self.async_smartir_file(number)
+                    hit = await self.hass.async_add_executor_job(_check, data)
+                except HubError:
+                    hit = None
+                done[0] += 1
+                progress(done[0], len(numbers))
+                if hit:
+                    key, table = hit
+                    found.append({"code": number, "maker": table["maker"], "models": table["models"],
+                                  "setting": smartir.describe_setting(key), "codes": smartir.count(table)})
+
+        await asyncio.gather(*(_one(n) for n in numbers))
+        return sorted(found, key=lambda f: f["code"])
+
+    async def async_table_copy(self, number: int, name: str | None, remote_id: str | None, emitter: str | None,
+                               temp_sensor: str | None) -> dict[str, Any]:
+        """Put an AC code set on a remote (a new one, or one that exists)."""
+        try:
+            table = smartir.table_from_smartir(await self.async_smartir_file(number))
+        except (smartir.TableError, codes.CodeError) as err:
+            raise HubError(str(err)) from err
+        table["source"] = f"SmartIR {number}"
+        if remote_id:
+            remote = self.store.remote(remote_id)
+            remote["kind"] = "ac"
+        else:
+            remote = self.store.upsert_remote({"name": name or table["maker"] or "Air conditioner", "kind": "ac"})
+        remote["table"] = table
+        if emitter is not None:
+            remote["emitter_ir"] = emitter or None
+        if temp_sensor is not None:
+            remote["temp_sensor"] = temp_sensor or None
+        await self.async_changed()
+        return {"remote_id": remote["id"], "codes": smartir.count(table)}
 
     def keep_learned(self, kind: str, timings: list[int], carrier: int | None) -> str:
         token = new_id()
@@ -403,6 +600,8 @@ class Hub:
         for remote in self.store.remotes.values():
             out.append({
                 **{k: remote.get(k) for k in ("id", "name", "kind", "emitter_ir", "emitter_rf", "temp_sensor")},
+                "table": ({"source": remote["table"].get("source"), "maker": remote["table"].get("maker"),
+                           "models": remote["table"].get("models"), "codes": smartir.count(remote["table"])} if remote.get("table") else None),
                 "platform": roles.platform_for(remote),
                 "entity": self._main_entity(remote),
                 "buttons": [{"id": b["id"], "name": b["name"], "kind": b.get("kind", "ir"), "sends": b.get("sends"),
