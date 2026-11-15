@@ -6,7 +6,10 @@ It adds a page called **Athom Hub** to the Home Assistant sidebar. On that page 
 
 - **Learn buttons** from the remotes you already have (TV, air conditioner, fan, curtains, sockets…), one by one.
 - **Copy remotes from a Broadlink** in one tap, if a Broadlink already learned them in Home Assistant.
-- **Press the buttons** right on the page. Every button is also a normal Home Assistant button, so it works on dashboards, in automations and with voice.
+- **Turn remotes into real devices.** An air conditioner remote becomes a thermostat (`climate`), a curtain remote becomes a curtain (`cover`), a TV remote becomes a media player, and fan and light remotes become a fan and a light. They work with the normal thermostat, curtain and media cards, in automations and with voice.
+- **Press the buttons** right on the page. Big picture buttons, coloured by what they do, with a tick and a short vibration when the code was sent.
+- **Control your Athom devices fully**: every setting in plain words, and for the presence sensor a live room map where you draw its zones with your finger.
+- **See the activity**: a live list of everything sent and everything the Athom heard, including which of your buttons it recognised.
 - **Check that it works** with a safe test that sends a made-up code. Your TV, AC and curtains will not react.
 - **See your Athom devices** (remote, presence sensor…): online or offline, room, Wi-Fi signal and a few live readings. Tap a device to see more.
 - **Save a backup** of all your remotes to a file, and bring it back later.
@@ -60,8 +63,30 @@ The Broadlink keeps working. Nothing is removed from it.
 ### Check that it works
 **Devices → Check that it works** sends a made-up code from the Athom (or from a Broadlink) and listens for it with the Athom's receiver. A green line means sending and hearing both work.
 
-### Use the buttons elsewhere
-Each remote becomes a device in Home Assistant with one button per remote button (for example `button.living_room_tv_power`). Put them on a dashboard or call `button.press` in an automation.
+### Use your remotes in Home Assistant
+Each remote becomes a device in Home Assistant:
+
+| Remote is a… | Becomes | Works with |
+|---|---|---|
+| Air conditioner | `climate` | Thermostat card, `climate.set_hvac_mode`, voice |
+| Curtain or blind | `cover` | Curtain or tile card, `cover.open_cover` |
+| TV or audio | `media_player` | Media card, `media_player.turn_on`, volume |
+| Fan | `fan` | Fan card |
+| Light | `light` | Light card |
+
+Athom Hub works out what each button does from its name ("Power", "Cool", "Open", "Vol +"…). To change it, open the remote, tap **Edit**, then **Name and picture** on a button, and choose **What this button does**.
+For an air conditioner you can also pick a **room temperature sensor** in the remote's settings, so the thermostat card shows the real temperature. Temperature up and down only work if those two buttons were learned.
+
+These devices cannot tell Home Assistant what they are doing, so their state is what Athom Hub last sent. Every button is still a normal Home Assistant `button` too, for automations.
+
+### Presence sensor (LD2450)
+Open **Devices**, tap the sensor, then **Settings and controls**:
+- **Room map:** the sensor is at the top and the people it sees are dots. Choose a zone, then drag on the map to draw it, drag inside it to move it, or drag a corner to resize it. Tap **Save zone**.
+- **What the zones do:** off, only see people inside the zones, or ignore people inside the zones.
+- Plain switches for the rest (how long it stays "present", tracking up to 3 people, Bluetooth, status light). Restart and reset are under **Advanced** and always ask first.
+
+### Activity
+The **Activity** tab lists what was sent (and whether it worked) and what the Athom heard. Radio noise is left out; a button you saved is shown by its name when it is heard.
 
 ---
 

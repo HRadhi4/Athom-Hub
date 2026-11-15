@@ -119,6 +119,7 @@ input,select{width:100%;min-height:46px;border-radius:14px;border:1px solid var(
 .ctl .t{font-size:15px;font-weight:500;line-height:1.35;overflow-wrap:anywhere}
 .ctl .s{font-size:12px;color:var(--tx2);line-height:1.4;margin-top:2px;overflow-wrap:anywhere}
 .ctl select,.ctl input{width:auto;min-width:120px;max-width:200px;flex:none}
+.ctl.col{flex-direction:column;align-items:stretch;gap:8px}.ctl.col select{max-width:none;width:100%}
 .tog{flex:none;width:56px;height:32px;border-radius:999px;border:0;background:var(--card2);position:relative;cursor:pointer;box-shadow:inset 0 0 0 1px var(--line)}
 .tog::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:var(--tx2);transition:left .15s}
 .tog.on{background:linear-gradient(135deg,var(--acc),var(--acc2))}.tog.on::after{left:28px;background:#fff}
@@ -835,7 +836,7 @@ Object.assign(AthomHubPanel.prototype, {
     } else if (dom === "text") ctl = `<input type="text" data-ch="text" data-id="${esc(id)}" value="${esc(st.state)}">`;
     else if (dom === "button") ctl = `<button class="pill ${f?.danger ? "danger" : ""}" data-a="ctlPress" data-id="${esc(id)}">${f?.danger ? "Do it…" : "Press"}</button>`;
     else if (dom === "cover") ctl = `<span class="row"><button class="pill" data-a="ctlCover" data-k="open" data-id="${esc(id)}">Open</button><button class="pill" data-a="ctlCover" data-k="close" data-id="${esc(id)}">Close</button></span>`;
-    return `<div class="ctl"><div class="grow"><div class="t">${esc(name)}</div>${help}</div>${ctl}</div>`;
+    return `<div class="ctl ${dom === "select" && !off ? "col" : ""}"><div class="grow"><div class="t">${esc(name)}</div>${help}</div>${ctl}</div>`;
   },
 
   // ---------------- zones map
