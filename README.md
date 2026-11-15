@@ -79,6 +79,15 @@ For an air conditioner you can also pick a **room temperature sensor** in the re
 
 These devices cannot tell Home Assistant what they are doing, so their state is what Athom Hub last sent. Every button is still a normal Home Assistant `button` too, for automations.
 
+### Air conditioners: full code sets
+An AC remote sends the *whole setting* (mode, fan and temperature) with every press, so learning a few buttons is not enough. Athom Hub can use the same shared code library that SmartIR uses (395 Broadlink code files from 110 brands):
+
+1. Open **From Broadlink → Air conditioner code sets**.
+2. If SmartIR is already set up, your ACs are listed: tap **Copy**. Otherwise tap **Find my AC's code set**, choose the brand (or "I don't know"), and press **Power** on your real AC remote, pointed at the Athom. Athom Hub searches the library for that exact code and shows which file it is in.
+3. Choose where it goes (a new remote, or an AC remote you already have), which device sends it, and a room temperature sensor. Tap **Use it**.
+
+The AC becomes a full thermostat: every mode, fan speed and temperature. And because every code is known, when someone uses the **real remote** near an Athom, Athom Hub recognises the setting and the thermostat in Home Assistant follows.
+
 ### Presence sensor (LD2450)
 Open **Devices**, tap the sensor, then **Settings and controls**:
 - **Room map:** the sensor is at the top and the people it sees are dots. Choose a zone, then drag on the map to draw it, drag inside it to move it, or drag a corner to resize it. Tap **Save zone**.
