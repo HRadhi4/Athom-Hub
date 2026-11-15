@@ -48,9 +48,9 @@ async def ws_overview(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dic
 
 
 @_command({vol.Required("type"): "athom_hub/self_test", vol.Required("emitter"): str, vol.Required("receiver"): str,
-           vol.Required("kind"): vol.In(["ir", "rf"])})
+           vol.Required("kind"): vol.In(["ir", "rf"]), vol.Optional("debug", default=False): bool})
 async def ws_self_test(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
-    return await hub.async_self_test(msg["emitter"], msg["receiver"], msg["kind"])
+    return await hub.async_self_test(msg["emitter"], msg["receiver"], msg["kind"], msg["debug"])
 
 
 @_command({vol.Required("type"): "athom_hub/remote_save", vol.Optional("remote_id"): str, vol.Optional("name"): str, vol.Optional("kind"): str,

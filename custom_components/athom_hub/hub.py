@@ -164,7 +164,7 @@ class Hub:
                             "online": bool(state and state.state != "unavailable")})
         return sorted(out, key=lambda p: p["name"])
 
-    async def async_self_test(self, emitter: str, receiver: str, kind: str) -> dict[str, Any]:
+    async def async_self_test(self, emitter: str, receiver: str, kind: str, debug: bool = False) -> dict[str, Any]:
         """Send a made-up code and check that a receiver hears it. No real device reacts to it."""
         import random  # noqa: PLC0415
 
@@ -191,7 +191,11 @@ class Hub:
                     break
         finally:
             stop()
-        return {"heard": codes.heard_frame(captures, frame), "captures": len(captures)}
+        out = {"heard": codes.heard_frame(captures, frame), "captures": len(captures)}
+        if debug:
+            out["sent"] = frame
+            out["heard_raw"] = [c[:160] for c in captures if len(c) >= 16][:12]
+        return out
 
     def _port(self, entity_id: str | None) -> dict[str, Any] | None:
         return next((p for p in self.ports() if p["entity_id"] == entity_id), None)
