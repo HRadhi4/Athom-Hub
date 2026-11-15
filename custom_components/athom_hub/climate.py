@@ -167,7 +167,10 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
 
     @property
     def fan_mode(self) -> str | None:
-        return self._fan if self.fan_modes else None
+        modes = self.fan_modes
+        if not modes:
+            return None
+        return self._fan if self._fan in modes else ("auto" if "auto" in modes else modes[0])
 
     @property
     def swing_mode(self) -> str | None:
