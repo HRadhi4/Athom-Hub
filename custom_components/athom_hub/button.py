@@ -72,7 +72,9 @@ class RemoteButton(ButtonEntity):
 
     def _apply(self, remote: dict, button: dict) -> None:
         self._attr_name = button["name"]
-        self._attr_icon = icons.for_button(button, remote.get("kind"))[0]
+        self._attr_icon, colour = icons.for_button(button, remote.get("kind"))
+        # Dashboards can colour the button the same way the Athom Hub page does.
+        self._attr_extra_state_attributes = {"colour": colour, "remote": remote["name"]}
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, remote["id"])},
             name=remote["name"],
@@ -83,7 +85,7 @@ class RemoteButton(ButtonEntity):
     @callback
     def refresh(self, remote: dict, button: dict) -> None:
         """The button was renamed on the page."""
-        if self._attr_name != button["name"] or self._attr_icon != icons.for_button(button, remote.get("kind"))[0]:
+        if (self._attr_name, self._attr_icon, (self._attr_extra_state_attributes or {}).get("colour")) != (button["name"], *icons.for_button(button, remote.get("kind"))):
             self._apply(remote, button)
             if self.hass:
                 self.async_write_ha_state()
