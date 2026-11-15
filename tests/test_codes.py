@@ -101,3 +101,11 @@ def test_self_test_frames_are_found_in_noise():
     assert c.heard_frame([[int(v * 1.1) for v in ir]], ir)
     assert not c.heard_frame([noise], rf)
     assert not c.heard_frame([c.ev1527_frame(0x123456)], rf)
+
+
+def test_swapped_radio_capture_is_put_right():
+    rf = codes.ev1527_frame(0x3C5A96)
+    flipped = [-v for v in rf] * 3
+    assert codes.normalize_capture(flipped)[0] > 0
+    assert codes.heard_frame([codes.normalize_capture(flipped)], rf)
+    assert codes.normalize_capture([900, 450, 560]) == [900, -450, 560]

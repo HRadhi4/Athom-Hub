@@ -279,9 +279,7 @@ class Hub:
 
         @callback
         def _heard(signal: Any) -> None:
-            timings = [int(v) for v in (getattr(signal, "timings", None) or [])]
-            if timings and all(v >= 0 for v in timings):     # unsigned on/off pairs
-                timings = [v if i % 2 == 0 else -v for i, v in enumerate(timings)]
+            timings = codes.normalize_capture(getattr(signal, "timings", None) or [])
             if timings:
                 on_signal(timings, getattr(signal, "modulation", None))
 

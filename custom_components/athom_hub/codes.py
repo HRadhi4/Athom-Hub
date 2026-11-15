@@ -92,6 +92,20 @@ def broadlink_encode(timings: list[int], kind: str = KIND_IR, repeat: int = 0) -
     return base64.b64encode(bytes(out)).decode()
 
 
+def normalize_capture(timings: list[int]) -> list[int]:
+    """Signed timings from what a receiver reports.
+
+    Some receivers report only lengths (all positive): those alternate on, off.
+    Some radio receivers report on and off swapped, so a capture starts with a
+    gap: a signal always starts with a pulse, so swap them back."""
+    out = [int(v) for v in timings if int(v)]
+    if out and all(v > 0 for v in out):
+        out = [v if i % 2 == 0 else -v for i, v in enumerate(out)]
+    if out and out[0] < 0:
+        out = [-v for v in out]
+    return out
+
+
 def tidy(timings: list[int]) -> list[int]:
     """Make a timing list regular: starts with a pulse, strictly alternates,
     no zeros, and ends with a gap that is long enough to repeat after but not endless."""
