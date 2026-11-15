@@ -46,7 +46,7 @@ Everything stays on your own Home Assistant. Nothing is sent to the internet.
 ## How to use it
 
 ### Copy your Broadlink remotes
-1. Open **Athom Hub → From Broadlink**.
+1. Open **Athom Hub → Broadlink**.
 2. Tap a remote to see its buttons, then tap **Copy to Athom Hub**.
 3. Open the new remote and press each button once to check that the real device reacts.
 
@@ -82,7 +82,7 @@ These devices cannot tell Home Assistant what they are doing, so their state is 
 ### Air conditioners: full code sets
 An AC remote sends the *whole setting* (mode, fan and temperature) with every press, so learning a few buttons is not enough. Athom Hub can use the same shared code library that SmartIR uses (395 Broadlink code files from 110 brands):
 
-1. Open **From Broadlink → Air conditioner code sets**.
+1. Open the **Broadlink** tab → **Air conditioner code sets**.
 2. If SmartIR is already set up, your ACs are listed: tap **Copy**. Otherwise tap **Find my AC's code set**, choose the brand (or "I don't know"), and press **Power** on your real AC remote, pointed at the Athom. Athom Hub searches the library for that exact code and shows which file it is in.
 3. Choose where it goes (a new remote, or an AC remote you already have), which device sends it, and a room temperature sensor. Tap **Use it**.
 

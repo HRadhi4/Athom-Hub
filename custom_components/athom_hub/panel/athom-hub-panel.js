@@ -30,8 +30,10 @@ const CSS = `
 .iconbtn{flex:none;width:44px;height:44px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--tx);
   display:flex;align-items:center;justify-content:center;cursor:pointer}
 .tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:5px;border-radius:18px;background:var(--card);border:1px solid var(--line);margin-bottom:16px}
-.tab{min-height:44px;border:0;border-radius:14px;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;
-  padding:8px 6px;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+.tab{min-height:56px;border:0;border-radius:14px;background:transparent;color:var(--tx2);font:inherit;font-size:12px;font-weight:600;cursor:pointer;
+  padding:6px 2px;line-height:1.2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;
+  white-space:normal;overflow-wrap:normal;word-break:keep-all}
+.tab ha-icon{--mdc-icon-size:22px}
 .tab.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;box-shadow:var(--glow)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:16px;min-width:0}
@@ -87,7 +89,7 @@ p,.note{color:var(--tx2);font-size:14px;line-height:1.5;margin:6px 0}
 .chip{font-size:12px;line-height:1.3;padding:5px 10px;border-radius:999px;background:var(--card2);color:var(--tx2);border:1px solid var(--line)}
 label{display:block;font-size:13px;color:var(--tx2);margin:12px 0 6px}
 input,select{width:100%;min-height:46px;border-radius:14px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font:inherit;font-size:15px;padding:10px 12px}
-.choice{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.choice{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(120px,100%),1fr));gap:8px}
 .choice button{min-height:56px}
 .choice .on{outline:2px solid var(--acc)}
 .shade{position:fixed;inset:0;background:rgba(5,6,12,.6);display:flex;align-items:flex-end;justify-content:center;z-index:10;padding:0}
@@ -105,6 +107,10 @@ input,select{width:100%;min-height:46px;border-radius:14px;border:1px solid var(
 .empty{text-align:center;padding:28px 12px}
 .sec{margin:22px 0 10px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--tx2)}
 .hidden{display:none}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.filters .pill{flex:1 1 auto;justify-content:center;white-space:nowrap;padding:10px 12px}
+.filters .pill.on{outline:2px solid var(--acc)}
+.pill,.zchip,.choice button{overflow-wrap:normal;word-break:keep-all}
 .logrow{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
 .logrow:first-child{border-top:0}
 .logrow .ic2{flex:none;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--card2)}
@@ -112,6 +118,7 @@ input,select{width:100%;min-height:46px;border-radius:14px;border:1px solid var(
 .logrow .t{font-size:15px;font-weight:500;line-height:1.35;overflow-wrap:anywhere}
 .logrow .s{font-size:12px;color:var(--tx2);line-height:1.4;margin-top:2px;overflow-wrap:anywhere}
 .logrow .tm{flex:none;font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums}
+@media(max-width:480px){.logrow{flex-wrap:wrap}.logrow .tm{order:-1;width:100%;padding-left:48px;margin-bottom:-6px}}
 .sheet.wide{max-width:760px}
 .ctl{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .ctl:first-child{border-top:0}
@@ -222,8 +229,8 @@ class AthomHubPanel extends HTMLElement {
           <div style="min-width:0"><h1>Athom Hub</h1><div class="sum">${esc(sum)}</div></div>
         </div>
         <div class="tabs">
-          ${[["remotes", "Remotes"], ["devices", "Devices"], ["broadlink", "From Broadlink"], ["log", "Activity"]]
-            .map(([k, t]) => `<button class="tab ${this.s.tab === k ? "on" : ""}" data-a="tab" data-k="${k}">${t}</button>`).join("")}
+          ${[["remotes", "Remotes", "mdi:remote"], ["devices", "Devices", "mdi:devices"], ["broadlink", "Broadlink", "mdi:content-copy"], ["log", "Activity", "mdi:history"]]
+            .map(([k, t, ic]) => `<button class="tab ${this.s.tab === k ? "on" : ""}" data-a="tab" data-k="${k}" aria-label="${t}"><ha-icon icon="${ic}"></ha-icon><span>${t}</span></button>`).join("")}
         </div>
         ${body}
       </div>
@@ -252,7 +259,7 @@ class AthomHubPanel extends HTMLElement {
           <span><div class="nm">New remote</div><div class="sb">Learn its buttons one by one</div></span>
         </button>
       </div>
-      ${remotes.length ? "" : `<p class="note" style="margin-top:14px">Tip: if a Broadlink already knows your remotes, open “From Broadlink” to copy them in one tap.</p>`}
+      ${remotes.length ? "" : `<p class="note" style="margin-top:14px">Tip: if a Broadlink already knows your remotes, open the Broadlink tab to copy them in one tap.</p>`}
       <div class="sec">Backup</div>
       <div class="row">
         <button class="pill" data-a="backup"><ha-icon icon="mdi:download"></ha-icon>Save a backup file</button>
@@ -709,7 +716,7 @@ class AthomHubPanel extends HTMLElement {
         <div class="grow"><div class="t">${esc(e.what)}</div><div class="s">${line} · ${esc(KIND_WORD[e.kind] || "")}</div>${e.why ? `<div class="s bad">${esc(e.why)}</div>` : ""}</div>
         <span class="tm">${fmt(e.time)}</span></div>`;
     };
-    return `<div class="choice" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:12px">
+    return `<div class="filters">
         ${[["all", "All"], ["sent", "Sent"], ["heard", "Heard"], ["bad", "Problems"]].map(([k, t]) => `<button class="pill ${f === k ? "on" : ""}" data-a="logFilter" data-k="${k}">${t}</button>`).join("")}
       </div>
       <div class="card" style="padding:4px 16px">${rows.length ? rows.map(item).join("") : `<div class="empty"><p>Nothing yet. Press a button here or on a real remote near the Athom.</p></div>`}</div>
