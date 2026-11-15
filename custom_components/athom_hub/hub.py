@@ -379,7 +379,9 @@ class Hub:
             if kind == codes.KIND_RF and (codes.pick_learned(frames, kind) is None):
                 return
         self.add_log({"dir": "heard", "ok": True, "what": match or ("Unknown radio signal" if kind == codes.KIND_RF else "Unknown infrared signal"),
-                      "via": via, "kind": kind, "known": bool(match), "pulses": codes.describe(frames[0])["pulses"]})
+                      "via": via, "kind": kind, "known": bool(match), "pulses": codes.describe(frames[0])["pulses"],
+                      # the longest frame, so an unknown signal can be compared or saved later
+                      "timings": max(frames, key=len)[:600]})
 
     def keep_learned(self, kind: str, timings: list[int], carrier: int | None) -> str:
         token = new_id()
