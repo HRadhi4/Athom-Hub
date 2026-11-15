@@ -48,8 +48,19 @@ const CSS = `
   font:inherit;font-size:15px;font-weight:500;line-height:1.3;padding:12px;cursor:pointer;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:6px;text-align:center;overflow-wrap:anywhere}
 .rb:active{transform:scale(.97)}
-.rb.sent{box-shadow:0 0 0 2px var(--acc),var(--glow)}
-.rb small{color:var(--tx2);font-size:12px;font-weight:400}
+.rb{position:relative}
+.rb ha-icon{--mdc-icon-size:34px;color:var(--bc,var(--acc))}
+.rb .lb{font-size:14px;line-height:1.3}
+.rb.ok{box-shadow:0 0 0 3px var(--ok),0 0 26px rgba(61,214,140,.45)}
+.rb.fail{box-shadow:0 0 0 3px var(--bad);animation:shake .35s}
+.rb .badge{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff}
+.rb .badge ha-icon{--mdc-icon-size:16px;color:#fff}
+.rb.ok .badge{background:var(--ok)}.rb.fail .badge{background:var(--bad)}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:8px}
+.pick button{min-height:52px;border-radius:14px;border:1px solid var(--line);background:var(--card2);color:var(--tx);cursor:pointer;font:inherit;font-size:12px;line-height:1.2;padding:4px}
+.pick button.on{outline:2px solid var(--acc)}
+.sw{width:100%;min-height:44px;border-radius:14px;cursor:pointer;border:1px solid var(--line);font:inherit;font-size:13px;color:#fff}
 .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .row.between{justify-content:space-between}
 .pill{min-height:44px;border-radius:14px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font:inherit;font-size:14px;
@@ -220,15 +231,15 @@ class AthomHubPanel extends HTMLElement {
     const [kname, icon] = KINDS[r.kind] || KINDS.other;
     const buttons = r.buttons.map((b, i) => edit
       ? `<div class="card" style="padding:12px">
-          <div class="t" style="font-weight:600;overflow-wrap:anywhere">${esc(b.name)}</div>
+          <div class="row" style="flex-wrap:nowrap"><ha-icon icon="${esc(b.icon)}" style="color:${esc(b.colour || "var(--acc)")};flex:none"></ha-icon><div class="t" style="font-weight:600;overflow-wrap:anywhere;min-width:0">${esc(b.name)}</div></div>
           <div class="note" style="margin:2px 0 8px">${KIND_WORD[b.kind] || ""} · ${b.pulses} pulses${b.source === "broadlink" ? " · from Broadlink" : ""}</div>
           <div class="row">
-            <button class="pill" data-a="renameBtn" data-id="${b.id}">Rename</button>
+            <button class="pill" data-a="renameBtn" data-id="${b.id}">Name and picture</button>
             <button class="pill" data-a="relearn" data-id="${b.id}">Learn again</button>
             ${i ? `<button class="iconbtn" data-a="up" data-id="${b.id}" aria-label="Move up"><ha-icon icon="mdi:arrow-up"></ha-icon></button>` : ""}
             <button class="iconbtn" data-a="delBtn" data-id="${b.id}" aria-label="Delete" style="color:var(--bad)"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
           </div></div>`
-      : `<button class="rb" data-a="press" data-id="${b.id}"><ha-icon icon="${b.kind === "rf" ? "mdi:radio-tower" : "mdi:remote"}"></ha-icon>${esc(b.name)}</button>`).join("");
+      : `<button class="rb" data-a="press" data-id="${b.id}" ${b.colour ? `style="--bc:${esc(b.colour)}"` : ""}><span class="badge"></span><ha-icon icon="${esc(b.icon)}"></ha-icon><span class="lb">${esc(b.name)}</span></button>`).join("");
     const kinds = [...new Set(r.buttons.map((b) => b.kind))];
     const from = (kinds.length ? kinds : ["ir"]).map((k) => `${KIND_WORD[k]}: ${esc(this.portName(r[`emitter_${k}`]))}`).join(" · ");
     return `
@@ -362,7 +373,20 @@ class AthomHubPanel extends HTMLElement {
         </div>`;
     }
     if (sh.type === "rename") {
-      return `<h2>Rename button</h2><label for="bname">Name</label><input id="bname" value="${esc(sh.name)}" maxlength="60">
+      const choices = this.s.data.icon_choices || [];
+      const cols = this.s.data.colours || {};
+      return `<h2>Name and picture</h2><label for="bname">Name</label><input id="bname" value="${esc(sh.name)}" maxlength="60">
+        <label>Picture</label>
+        <div class="pick">
+          <button class="${sh.icon ? "" : "on"}" data-a="pickIcon" data-k="">Auto</button>
+          ${choices.map((ic) => `<button class="${sh.icon === ic ? "on" : ""}" data-a="pickIcon" data-k="${ic}" aria-label="${ic.slice(4)}"><ha-icon icon="${ic}"></ha-icon></button>`).join("")}
+        </div>
+        <label>Colour</label>
+        <div class="choice">
+          <button class="sw ${!sh.colour ? "on" : ""}" style="background:var(--card2);color:var(--tx)" data-a="pickColour" data-k="">Auto</button>
+          ${Object.entries(cols).map(([k, c]) => `<button class="sw ${sh.colour === k ? "on" : ""}" style="background:${c}" data-a="pickColour" data-k="${k}" aria-label="${k}"></button>`).join("")}
+          <button class="sw ${sh.colour === "none" ? "on" : ""}" style="background:var(--acc)" data-a="pickColour" data-k="none" aria-label="plain"></button>
+        </div>
         <div class="row" style="margin-top:18px;justify-content:flex-end">${close}<button class="pill main" data-a="saveName">Save</button></div>`;
     }
     if (sh.type === "confirm") {
@@ -461,15 +485,23 @@ class AthomHubPanel extends HTMLElement {
       case "confirmYes": { const f = s.sheet.then; s.sheet = null; this.render(); await f(); return; }
       case "press": {
         const el = this.shadowRoot.querySelector(`[data-a="press"][data-id="${ds.id}"]`);
-        if (el) el.classList.add("sent");
-        await this.run(() => this.ws("press", { remote_id: s.remote, button_id: ds.id }));
-        setTimeout(() => el && el.classList.remove("sent"), 400);
+        if (!el) return;
+        el.classList.remove("ok", "fail");
+        let good = true;
+        try { await this.ws("press", { remote_id: s.remote, button_id: ds.id }); } catch (e) { good = false; this.toast(e.message || "It did not send.", true); }
+        el.classList.add(good ? "ok" : "fail");
+        el.querySelector(".badge").innerHTML = `<ha-icon icon="${good ? "mdi:check" : "mdi:close"}"></ha-icon>`;
+        try { navigator.vibrate && navigator.vibrate(good ? 35 : [70, 50, 70]); } catch { /* not on this device */ }
+        clearTimeout(el._t);
+        el._t = setTimeout(() => { el.classList.remove("ok", "fail"); el.querySelector(".badge").innerHTML = ""; }, good ? 900 : 1600);
         return;
       }
-      case "renameBtn": { const b = this.remote().buttons.find((x) => x.id === ds.id); s.sheet = { type: "rename", id: ds.id, name: b.name }; this.render(); return; }
+      case "renameBtn": { const b = this.remote().buttons.find((x) => x.id === ds.id); s.sheet = { type: "rename", id: ds.id, name: b.name, icon: b.icon_set || "", colour: b.colour_set || "" }; this.render(); return; }
+      case "pickIcon": s.sheet.name = this.val("bname"); s.sheet.icon = ds.k; this.render(); return;
+      case "pickColour": s.sheet.name = this.val("bname"); s.sheet.colour = ds.k; this.render(); return;
       case "saveName": {
         const name = (this.val("bname") || "").trim(); if (!name) return;
-        const r = await this.run(() => this.ws("button_save", { remote_id: s.remote, button_id: s.sheet.id, name }), "Renamed");
+        const r = await this.run(() => this.ws("button_save", { remote_id: s.remote, button_id: s.sheet.id, name, icon: s.sheet.icon || null, colour: s.sheet.colour || null }), "Saved");
         if (r) { s.sheet = null; await this.load(); }
         return;
       }

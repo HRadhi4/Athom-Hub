@@ -11,7 +11,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
-from . import codes
+from . import codes, icons
 from .const import DOMAIN, LEARN_SECONDS, LEARN_SETTLE_SECONDS, REMOTE_KINDS, VERSION
 from .hub import Hub, HubError
 from .store import new_id
@@ -44,7 +44,8 @@ def _command(schema: dict[Any, Any]):
 async def ws_overview(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
     return {"version": VERSION, "ports": hub.ports(), "devices": hub.devices(), "remotes": hub.remotes_public(),
             "defaults": hub.default_emitters(), "kinds": REMOTE_KINDS,
-            "broadlinks": hub.broadlink_senders()}
+            "broadlinks": hub.broadlink_senders(),
+            "icon_choices": icons.CHOICES, "colours": icons.COLOURS}
 
 
 @_command({vol.Required("type"): "athom_hub/self_test", vol.Required("emitter"): str, vol.Required("receiver"): str,
@@ -77,7 +78,8 @@ async def ws_remote_delete(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -
 
 
 @_command({vol.Required("type"): "athom_hub/button_save", vol.Required("remote_id"): str, vol.Optional("button_id"): str,
-           vol.Optional("name"): str, vol.Optional("token"): str, vol.Optional("sends"): vol.Coerce(int)})
+           vol.Optional("name"): str, vol.Optional("token"): str, vol.Optional("sends"): vol.Coerce(int),
+           vol.Optional("icon"): vol.Any(str, None), vol.Optional("colour"): vol.Any(str, None)})
 async def ws_button_save(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
     button = await hub.async_save_button(msg["remote_id"], msg)
     return {"button_id": button["id"], "name": button["name"]}

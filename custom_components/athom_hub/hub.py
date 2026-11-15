@@ -14,7 +14,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
-from . import codes
+from . import codes, icons
 from .const import DEFAULT_SENDS, DOMAIN, SIGNAL_REMOTES_CHANGED
 from .store import HubStore, clean_name, new_id
 
@@ -310,7 +310,9 @@ class Hub:
             out.append({
                 **{k: remote.get(k) for k in ("id", "name", "kind", "emitter_ir", "emitter_rf")},
                 "buttons": [{"id": b["id"], "name": b["name"], "kind": b.get("kind", "ir"), "sends": b.get("sends"),
-                             "source": b.get("source"), **codes.describe(b.get("timings") or [])} for b in remote["buttons"]],
+                             "source": b.get("source"), "icon_set": b.get("icon"), "colour_set": b.get("colour"),
+                             **dict(zip(("icon", "colour"), icons.for_button(b, remote.get("kind")))),
+                             **codes.describe(b.get("timings") or [])} for b in remote["buttons"]],
             })
         out.sort(key=lambda r: r["name"].lower())
         return out
@@ -332,6 +334,10 @@ class Hub:
             button.update(self.learned.pop(token))
         if "name" in data or not button.get("name"):
             button["name"] = self.store.unique_button_name(remote, clean_name(data.get("name"), "Button"), button["id"])
+        if "icon" in data:
+            button["icon"] = data["icon"] if data["icon"] in icons.CHOICES else None
+        if "colour" in data:
+            button["colour"] = data["colour"] if data["colour"] in (*icons.COLOURS, "none") else None
         if data.get("sends"):
             button["sends"] = max(1, min(20, int(data["sends"])))
         await self.async_changed()

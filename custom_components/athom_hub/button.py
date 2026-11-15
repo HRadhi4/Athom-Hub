@@ -10,6 +10,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+from . import icons
 from .const import DOMAIN, SIGNAL_REMOTES_CHANGED
 from .hub import Hub
 
@@ -71,7 +72,7 @@ class RemoteButton(ButtonEntity):
 
     def _apply(self, remote: dict, button: dict) -> None:
         self._attr_name = button["name"]
-        self._attr_icon = "mdi:radio-tower" if button.get("kind") == "rf" else "mdi:remote"
+        self._attr_icon = icons.for_button(button, remote.get("kind"))[0]
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, remote["id"])},
             name=remote["name"],
@@ -82,7 +83,7 @@ class RemoteButton(ButtonEntity):
     @callback
     def refresh(self, remote: dict, button: dict) -> None:
         """The button was renamed on the page."""
-        if self._attr_name != button["name"]:
+        if self._attr_name != button["name"] or self._attr_icon != icons.for_button(button, remote.get("kind"))[0]:
             self._apply(remote, button)
             if self.hass:
                 self.async_write_ha_state()
