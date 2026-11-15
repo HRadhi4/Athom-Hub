@@ -103,6 +103,8 @@ class Hub:
                 by_device.setdefault(port["device_id"], []).append(port)
         out = []
         for device in dev_reg.devices.values():
+            if any(ident[0] == DOMAIN for ident in device.identifiers):
+                continue                           # our own remotes, not hardware
             athom = bool(_ATHOM.search(f"{device.manufacturer} {device.model} {device.name}"))
             if device.id not in by_device and not athom:
                 continue
