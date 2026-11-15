@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Athom Hub",
+        "description": "A friendly page for your Athom remotes: learn buttons, copy remotes from a Broadlink, and use them anywhere in Home Assistant. Nothing to fill in. After adding, open \"Athom Hub\" in the sidebar."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Athom Hub is already added."
+    }
+  }
+}
