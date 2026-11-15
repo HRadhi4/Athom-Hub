@@ -29,7 +29,7 @@ const CSS = `
 .top .sum{color:var(--tx2);font-size:14px;line-height:1.4;margin-top:2px}
 .iconbtn{flex:none;width:44px;height:44px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--tx);
   display:flex;align-items:center;justify-content:center;cursor:pointer}
-.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:5px;border-radius:18px;background:var(--card);border:1px solid var(--line);margin-bottom:16px}
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:5px;border-radius:18px;background:var(--card);border:1px solid var(--line);margin-bottom:16px}
 .tab{min-height:44px;border:0;border-radius:14px;background:transparent;color:var(--tx2);font:inherit;font-size:14px;font-weight:500;cursor:pointer;
   padding:8px 6px;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
 .tab.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;box-shadow:var(--glow)}
@@ -105,6 +105,13 @@ input,select{width:100%;min-height:46px;border-radius:14px;border:1px solid var(
 .empty{text-align:center;padding:28px 12px}
 .sec{margin:22px 0 10px;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--tx2)}
 .hidden{display:none}
+.logrow{display:flex;gap:12px;align-items:flex-start;padding:12px 0;border-top:1px solid var(--line)}
+.logrow:first-child{border-top:0}
+.logrow .ic2{flex:none;width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--card2)}
+.logrow .grow{flex:1;min-width:0}
+.logrow .t{font-size:15px;font-weight:500;line-height:1.35;overflow-wrap:anywhere}
+.logrow .s{font-size:12px;color:var(--tx2);line-height:1.4;margin-top:2px;overflow-wrap:anywhere}
+.logrow .tm{flex:none;font-size:12px;color:var(--tx2);font-variant-numeric:tabular-nums}
 .sheet.wide{max-width:760px}
 .ctl{display:flex;align-items:center;gap:12px;padding:12px 0;border-top:1px solid var(--line)}
 .ctl:first-child{border-top:0}
@@ -202,6 +209,7 @@ class AthomHubPanel extends HTMLElement {
     else if (!d) body = `<div class="card empty"><p>Loading…</p></div>`;
     else if (this.s.tab === "remotes") body = this.s.remote && this.remote() ? this.vRemote(this.remote()) : this.vRemotes(remotes);
     else if (this.s.tab === "devices") body = this.vDevices(d);
+    else if (this.s.tab === "log") body = this.vLog();
     else body = this.vBroadlink();
 
     const oldSheet = this.shadowRoot.querySelector(".sheet");
@@ -213,7 +221,7 @@ class AthomHubPanel extends HTMLElement {
           <div style="min-width:0"><h1>Athom Hub</h1><div class="sum">${esc(sum)}</div></div>
         </div>
         <div class="tabs">
-          ${[["remotes", "Remotes"], ["devices", "Devices"], ["broadlink", "From Broadlink"]]
+          ${[["remotes", "Remotes"], ["devices", "Devices"], ["broadlink", "From Broadlink"], ["log", "Activity"]]
             .map(([k, t]) => `<button class="tab ${this.s.tab === k ? "on" : ""}" data-a="tab" data-k="${k}">${t}</button>`).join("")}
         </div>
         ${body}
@@ -512,7 +520,9 @@ class AthomHubPanel extends HTMLElement {
     switch (a) {
       case "menu": this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true })); return;
       case "reload": s.err = ""; this.render(); this.load(); return;
-      case "tab": s.tab = ds.k; s.remote = null; s.edit = false; this.render(); return;
+      case "tab": s.tab = ds.k; s.remote = null; s.edit = false; this.render(); if (ds.k === "log") this.startLog(); return;
+      case "logFilter": s.logFilter = ds.k; this.render(); return;
+      case "logClear": await this.run(() => this.ws("log_clear")); s.log = []; this.render(); return;
       case "open": s.remote = ds.id; s.edit = false; this.render(); return;
       case "back": s.remote = null; s.edit = false; this.render(); return;
       case "edit": s.edit = !s.edit; this.render(); return;
@@ -664,7 +674,41 @@ class AthomHubPanel extends HTMLElement {
     if (this._unsub) { try { this._unsub(); } catch { /* already closed */ } this._unsub = null; }
   }
 
-  disconnectedCallback() { this.stopLearn(); }
+  disconnectedCallback() { this.stopLearn(); if (this._logUnsub) { try { this._logUnsub(); } catch { /* closed */ } this._logUnsub = null; } }
+
+  async startLog() {
+    if (this._logUnsub) return;
+    const r = await this.run(() => this.ws("log"));
+    this.s.log = r ? r.log : [];
+    this.render();
+    try {
+      this._logUnsub = await this._hass.connection.subscribeMessage((entry) => {
+        this.s.log = [...(this.s.log || []), entry].slice(-200);
+        if (this.s.tab === "log" && !this.s.sheet) this.render();
+      }, { type: "athom_hub/log_subscribe" });
+    } catch { /* the list still shows what happened before */ }
+  }
+
+  vLog() {
+    if (!this.s.log) { this.startLog(); return `<div class="card empty"><p>Loading…</p></div>`; }
+    const f = this.s.logFilter || "all";
+    const rows = [...this.s.log].reverse().filter((e) => f === "all" || (f === "sent" ? e.dir === "sent" : f === "heard" ? e.dir === "heard" : !e.ok));
+    const fmt = (t) => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    const item = (e) => {
+      const sent = e.dir === "sent";
+      const col = !e.ok ? "var(--bad)" : sent ? "var(--ok)" : e.known ? "var(--acc)" : "var(--tx2)";
+      const icon = !e.ok ? "mdi:alert-circle-outline" : sent ? "mdi:arrow-up-bold-circle-outline" : "mdi:arrow-down-bold-circle-outline";
+      const line = sent ? `${e.ok ? "Sent" : "Could not send"} from ${esc(e.via)}` : `Heard by ${esc(e.via)}${e.known ? "" : ` · ${e.pulses} pulses`}`;
+      return `<div class="logrow"><span class="ic2" style="color:${col}"><ha-icon icon="${icon}"></ha-icon></span>
+        <div class="grow"><div class="t">${esc(e.what)}</div><div class="s">${line} · ${esc(KIND_WORD[e.kind] || "")}</div>${e.why ? `<div class="s bad">${esc(e.why)}</div>` : ""}</div>
+        <span class="tm">${fmt(e.time)}</span></div>`;
+    };
+    return `<div class="choice" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:12px">
+        ${[["all", "All"], ["sent", "Sent"], ["heard", "Heard"], ["bad", "Problems"]].map(([k, t]) => `<button class="pill ${f === k ? "on" : ""}" data-a="logFilter" data-k="${k}">${t}</button>`).join("")}
+      </div>
+      <div class="card" style="padding:4px 16px">${rows.length ? rows.map(item).join("") : `<div class="empty"><p>Nothing yet. Press a button here or on a real remote near the Athom.</p></div>`}</div>
+      <div class="row between" style="margin-top:10px"><p class="note">Newest first. Kept until Home Assistant restarts.</p><button class="pill" data-a="logClear">Clear</button></div>`;
+  }
 }
 
 

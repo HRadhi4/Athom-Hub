@@ -7,13 +7,16 @@ Everything stays on this Home Assistant; nothing is sent anywhere.
 
 from __future__ import annotations
 
+from datetime import timedelta
 from pathlib import Path
 
 from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.start import async_at_started
 
 from .const import DOMAIN, PANEL_ELEMENT, PANEL_ICON, PANEL_TITLE, PANEL_URL, STATIC_URL, VERSION
 from .hub import Hub
@@ -48,6 +51,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    @callback
+    def _watch(_now=None) -> None:
+        hub.async_watch_receivers()
+
+    # Start listening once everything is up, and check again now and then (devices come and go).
+    entry.async_on_unload(async_at_started(hass, lambda _h: _watch()))
+    entry.async_on_unload(async_track_time_interval(hass, _watch, timedelta(minutes=5)))
+    entry.async_on_unload(hub.async_stop_watching)
     return True
 
 

@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
 from . import codes, icons, roles
-from .const import DOMAIN, LEARN_SECONDS, LEARN_SETTLE_SECONDS, REMOTE_KINDS, VERSION
+from .const import DOMAIN, SIGNAL_LOG, LEARN_SECONDS, LEARN_SETTLE_SECONDS, REMOTE_KINDS, VERSION
 from .hub import Hub, HubError
 from .store import new_id
 
@@ -115,7 +115,7 @@ async def ws_test(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[st
     code = hub.learned.get(msg["token"])
     if code is None:
         raise HubError("That learned code has expired. Learn the button again.")
-    await hub.async_send(msg["emitter"], code)
+    await hub.async_send(msg["emitter"], code, "Just-learned button (try it)")
     return {}
 
 
@@ -228,8 +228,35 @@ async def ws_learn(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         connection.send_message(websocket_api.event_message(msg["id"], {"state": "timeout", "count": len(captures)}))
 
 
+@_command({vol.Required("type"): "athom_hub/log"})
+async def ws_log(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
+    hub.async_watch_receivers()
+    return {"log": list(hub.log)}
+
+
+@_command({vol.Required("type"): "athom_hub/log_clear"})
+async def ws_log_clear(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
+    hub.log.clear()
+    return {}
+
+
+@websocket_api.websocket_command({vol.Required("type"): "athom_hub/log_subscribe"})
+@websocket_api.require_admin
+@callback
+def ws_log_subscribe(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Send every new activity line to the page while it is open."""
+    from homeassistant.helpers.dispatcher import async_dispatcher_connect  # noqa: PLC0415
+
+    @callback
+    def _new(entry: dict[str, Any]) -> None:
+        connection.send_message(websocket_api.event_message(msg["id"], entry))
+
+    connection.subscriptions[msg["id"]] = async_dispatcher_connect(hass, SIGNAL_LOG, _new)
+    connection.send_result(msg["id"])
+
+
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
     for handler in (ws_overview, ws_remote_save, ws_remote_delete, ws_button_save, ws_button_delete, ws_button_order,
-                    ws_press, ws_test, ws_broadlink, ws_broadlink_copy, ws_backup, ws_restore, ws_learn, ws_self_test):
+                    ws_press, ws_test, ws_broadlink, ws_broadlink_copy, ws_backup, ws_restore, ws_learn, ws_self_test, ws_log, ws_log_clear, ws_log_subscribe):
         websocket_api.async_register_command(hass, handler)

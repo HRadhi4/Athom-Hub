@@ -1,7 +1,7 @@
 """Names used across Athom Hub."""
 
 DOMAIN = "athom_hub"
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 
 STORAGE_KEY = DOMAIN
 STORAGE_VERSION = 1
@@ -13,6 +13,7 @@ PANEL_ICON = "mdi:remote"
 STATIC_URL = "/athom_hub_static"
 
 SIGNAL_REMOTES_CHANGED = f"{DOMAIN}_remotes_changed"
+SIGNAL_LOG = f"{DOMAIN}_log"
 
 # How long the receiver listens for a button press, in seconds.
 LEARN_SECONDS = 20

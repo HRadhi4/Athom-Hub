@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from collections import deque
 import json
 import logging
 import re
@@ -15,7 +17,7 @@ from homeassistant.helpers import area_registry as ar, device_registry as dr, en
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 
 from . import codes, icons, roles
-from .const import DEFAULT_SENDS, DOMAIN, SIGNAL_REMOTES_CHANGED
+from .const import DEFAULT_SENDS, DOMAIN, SIGNAL_LOG, SIGNAL_REMOTES_CHANGED
 from .store import HubStore, clean_name, new_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -52,6 +54,10 @@ class Hub:
         self.learned: dict[str, dict[str, Any]] = {}
         # Which button of a role goes next (a role with two buttons uses them in turn, like a Broadlink "toggle").
         self._turn: dict[tuple[str, str], int] = {}
+        # What was sent and heard, newest last (kept in memory only).
+        self.log: deque[dict[str, Any]] = deque(maxlen=200)
+        self._watching: dict[str, Any] = {}
+        self._bursts: dict[str, dict[str, Any]] = {}
 
     async def async_load(self) -> None:
         await self.store.async_load()
@@ -187,8 +193,9 @@ class Hub:
                 text = codes.broadlink_encode(frame, kind, 0 if kind == codes.KIND_IR else 3)
                 frame = codes.broadlink_decode(text)["timings"]       # what a copied code would be
                 await self.hass.services.async_call("remote", "send_command", {"entity_id": emitter, "command": f"b64:{text}"}, blocking=True)
+                self.add_log({"dir": "sent", "ok": True, "what": "Safe test code", "via": next((b["name"] for b in self.broadlink_senders() if b["entity_id"] == emitter), emitter), "kind": kind})
             else:
-                await self.async_send(emitter, {"kind": kind, "timings": frame, "sends": 1 if kind == codes.KIND_IR else 4})
+                await self.async_send(emitter, {"kind": kind, "timings": frame, "sends": 1 if kind == codes.KIND_IR else 4}, "Safe test code")
             for _ in range(30):
                 await asyncio.sleep(0.1)
                 if codes.heard_frame(captures, frame):
@@ -214,7 +221,24 @@ class Hub:
 
     # ------------------------------------------------------------------ sending
 
-    async def async_send(self, emitter: str | None, code: dict[str, Any]) -> None:
+    @callback
+    def add_log(self, entry: dict[str, Any]) -> None:
+        entry = {"time": time.time(), **entry}
+        self.log.append(entry)
+        async_dispatcher_send(self.hass, SIGNAL_LOG, entry)
+
+    async def async_send(self, emitter: str | None, code: dict[str, Any], label: str | None = None) -> None:
+        """Send one code, and write it in the activity list."""
+        port = self._port(emitter)
+        via = port["device_name"] if port else (emitter or "nothing chosen")
+        try:
+            await self._send(emitter, code)
+        except Exception as err:
+            self.add_log({"dir": "sent", "ok": False, "what": label or "A code", "via": via, "kind": code.get("kind"), "why": str(err) or type(err).__name__})
+            raise
+        self.add_log({"dir": "sent", "ok": True, "what": label or "A code", "via": via, "kind": code.get("kind")})
+
+    async def _send(self, emitter: str | None, code: dict[str, Any]) -> None:
         """Send one code from one emitter."""
         kind = code.get("kind") or codes.KIND_IR
         port = self._port(emitter)
@@ -274,12 +298,13 @@ class Hub:
         index = self._turn.get(key, 0) % len(buttons)
         self._turn[key] = index + 1
         button = buttons[index]
-        await self.async_send(remote.get(f"emitter_{button.get('kind', 'ir')}"), button)
+        await self.async_send(remote.get(f"emitter_{button.get('kind', 'ir')}"), button,
+                              f"{remote['name']} · {roles.ROLE_NAMES.get(role, role)}")
 
     async def async_press(self, remote_id: str, button_id: str) -> None:
         remote = self.store.remote(remote_id)
         button = self.store.button(remote_id, button_id)
-        await self.async_send(remote.get(f"emitter_{button.get('kind', 'ir')}"), button)
+        await self.async_send(remote.get(f"emitter_{button.get('kind', 'ir')}"), button, f"{remote['name']} · {button['name']}")
 
     # ------------------------------------------------------------------ learning
 
@@ -303,6 +328,58 @@ class Hub:
             return radio_frequency.async_subscribe_receiver(self.hass, receiver, _heard)
         from homeassistant.components import infrared  # noqa: PLC0415
         return infrared.async_subscribe_receiver(self.hass, receiver, _heard)
+
+    @callback
+    def async_watch_receivers(self) -> None:
+        """Listen on every receiver all the time, for the activity list."""
+        for port in self.ports():
+            if port["role"] != "receive" or port["entity_id"] in self._watching or not port["online"]:
+                continue
+            entity_id, kind, name = port["entity_id"], port["kind"], port["device_name"]
+            try:
+                self._watching[entity_id] = self.async_listen(entity_id, lambda t, _m, e=entity_id, k=kind, n=name: self._heard(e, k, n, t))
+            except HomeAssistantError:
+                continue
+
+    @callback
+    def async_stop_watching(self) -> None:
+        for stop in self._watching.values():
+            stop()
+        self._watching.clear()
+
+    @callback
+    def _heard(self, receiver: str, kind: str, via: str, timings: list[int]) -> None:
+        """Collect one press (all frames within a second), then log it once."""
+        burst = self._bursts.get(receiver)
+        if burst is None:
+            burst = self._bursts[receiver] = {"captures": [], "timer": None}
+            burst["timer"] = self.hass.loop.call_later(1.0, self._burst_done, receiver, kind, via)
+        if len(burst["captures"]) < 60:
+            burst["captures"].append(timings)
+
+    @callback
+    def _burst_done(self, receiver: str, kind: str, via: str) -> None:
+        burst = self._bursts.pop(receiver, None)
+        if not burst:
+            return
+        captures = burst["captures"]
+        frames = [f for c in captures for f in codes.split_frames(c) if codes.looks_like_signal(f, kind)]
+        if not frames:
+            return
+        match = None
+        for remote in self.store.remotes.values():
+            for button in remote["buttons"]:
+                if button.get("kind") == kind and button.get("timings") and codes.heard_frame(captures, button["timings"]):
+                    match = f"{remote['name']} · {button['name']}"
+                    break
+            if match:
+                break
+        if match is None:
+            # Radio receivers hear noise: only an unknown signal that came several times is a real remote.
+            if kind == codes.KIND_RF and (codes.pick_learned(frames, kind) is None):
+                return
+        self.add_log({"dir": "heard", "ok": True, "what": match or ("Unknown radio signal" if kind == codes.KIND_RF else "Unknown infrared signal"),
+                      "via": via, "kind": kind, "known": bool(match), "pulses": codes.describe(frames[0])["pulses"]})
 
     def keep_learned(self, kind: str, timings: list[int], carrier: int | None) -> str:
         token = new_id()
