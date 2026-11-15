@@ -91,7 +91,11 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
             self._unsub_sensor = None
         self._sensor = sensor
         if sensor:
-            self._unsub_sensor = async_track_state_change_event(self.hass, [sensor], lambda _e: self.async_write_ha_state())
+            self._unsub_sensor = async_track_state_change_event(self.hass, [sensor], self._sensor_changed)
+
+    @callback
+    def _sensor_changed(self, _event) -> None:
+        self.async_write_ha_state()
 
     @callback
     def refresh(self) -> None:
