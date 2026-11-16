@@ -59,6 +59,7 @@ class Hub:
         self._watching: dict[str, Any] = {}
         self._bursts: dict[str, dict[str, Any]] = {}
         self._tables: dict[str, tuple[int, dict[tuple, list[int]]]] = {}
+        self._last_setting_sent: dict[str, float] = {}
         self._smartir_index: tuple[float, list[dict[str, Any]]] | None = None
         self._smartir_files: dict[int, dict[str, Any]] = {}
 
@@ -377,8 +378,13 @@ class Hub:
                     continue
                 key = codes.best_match(captures, table)
                 if key is not None:
-                    async_dispatcher_send(self.hass, SIGNAL_SETTING_HEARD, remote["id"], key)
                     match = f"{remote['name']} · {smartir.describe_setting(key)}"
+                    # Our own send, heard back a moment later: it must not undo a newer setting.
+                    if time.time() - self._last_setting_sent.get(remote["id"], 0) < 5:
+                        match += " (Athom Hub's own send)"
+                    else:
+                        async_dispatcher_send(self.hass, SIGNAL_SETTING_HEARD, remote["id"], key)
+                        match += " (real remote)"
                     break
         for remote in [] if match else self.store.remotes.values():
             for button in remote["buttons"]:
@@ -443,6 +449,7 @@ class Hub:
         code = codes.broadlink_decode(text)
         code["sends"] = code["repeat"] + 1
         key = ("off",) if mode == "off" else (mode, use_fan, use_temp)
+        self._last_setting_sent[remote_id] = time.time()
         await self.async_send(remote.get("emitter_ir"), code, f"{remote['name']} · {smartir.describe_setting(key)}")
         return use_fan, use_temp
 

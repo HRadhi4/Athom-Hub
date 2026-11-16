@@ -2,6 +2,11 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.6.1 — 2026-11-16
+**Air conditioner fixes**
+- Changing the mode and the temperature together now sends one code, not two.
+- When the Athom hears Athom Hub's own send a moment later, it no longer pulls the thermostat back to an older setting. Activity shows whether a heard AC code came from the real remote or from Athom Hub itself.
+
 ## 0.6.0 — 2026-11-16
 **Easier to read on phones**
 - Tabs show an icon with a one-word name, and words are never split in the middle ("Remote / s" is gone).

@@ -223,6 +223,21 @@ class RemoteClimate(RemoteEntity, ClimateEntity):
         await self.async_set_hvac_mode(HVACMode.OFF)
 
     async def async_set_temperature(self, **kwargs: Any) -> None:
+        if self.table:
+            # One code carries the whole setting: send it once, with the new mode and temperature together.
+            mode = kwargs.get("hvac_mode")
+            if kwargs.get(ATTR_TEMPERATURE) is not None:
+                self._target = max(self.min_temp, min(self.max_temp, float(kwargs[ATTR_TEMPERATURE])))
+            if mode is not None:
+                self._mode = HVACMode(mode)
+                if self._mode != HVACMode.OFF:
+                    self._last_on = self._mode
+            if self._mode != HVACMode.OFF:
+                await self._send_table(self._mode)
+            elif mode is not None:
+                await self._send_table(HVACMode.OFF)
+            self.async_write_ha_state()
+            return
         if (mode := kwargs.get("hvac_mode")) is not None:
             await self.async_set_hvac_mode(mode)
         target = kwargs.get(ATTR_TEMPERATURE)
