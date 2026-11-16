@@ -1,4 +1,8 @@
+<p align="center"><img src="https://raw.githubusercontent.com/HRadhi4/Athom_For_Dummies/main/custom_components/athom_hub/brand/logo@2x.png" alt="Athom Hub" width="420"></p>
+
 # Athom for Dummies
+
+[![HACS](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz) [![Validate](https://github.com/HRadhi4/Athom_For_Dummies/actions/workflows/validate.yml/badge.svg)](https://github.com/HRadhi4/Athom_For_Dummies/actions/workflows/validate.yml)
 
 A simple way to use an **Athom RF/IR Remote** (and other Athom ESP32 devices) with Home Assistant, with no coding and no re-flashing.
 
@@ -27,9 +31,8 @@ Everything stays on your own Home Assistant. Nothing is sent to the internet.
 ## Install
 
 ### With HACS (easiest)
-1. Open **HACS** → the three dots at the top right → **Custom repositories**.
-2. Paste this repository's address, choose **Integration**, and tap **Add**.
-3. Find **Athom Hub** in HACS, tap **Download**.
+1. Open **HACS**, search for **Athom Hub** and tap **Download**.
+   *Not found yet?* Until it is in the HACS store: the three dots at the top right → **Custom repositories** → paste this repository's address, choose **Integration**, tap **Add**, then search again.
 4. **Restart** Home Assistant (*Settings → System → Restart*).
 
 ### By hand

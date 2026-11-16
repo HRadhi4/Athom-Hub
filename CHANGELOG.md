@@ -2,6 +2,12 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.6.2 — 2026-11-16
+**Ready for the HACS store**
+- Athom Hub now has its own icon and logo, shown on the Integrations page and in HACS (Home Assistant 2026.3 or newer).
+- The checks that Home Assistant (hassfest) and HACS run on integrations now run on GitHub for every change.
+- Installing: once Athom Hub is in the HACS store you can simply search for it in HACS.
+
 ## 0.6.1 — 2026-11-16
 **Air conditioner fixes**
 - Changing the mode and the temperature together now sends one code, not two.
