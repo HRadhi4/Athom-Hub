@@ -2,6 +2,9 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.6.3 — 2026-11-16
+- Athom Hub now says what kind of integration it is (remotes, air conditioning, presence), so Home Assistant and HACS can list it in the right place.
+
 ## 0.6.2 — 2026-11-16
 **Ready for the HACS store**
 - Athom Hub now has its own icon and logo, shown on the Integrations page and in HACS (Home Assistant 2026.3 or newer).
