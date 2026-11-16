@@ -1,0 +1,28 @@
+name: Something is wrong
+description: Athom Hub does not work as expected, or shows an error.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happens, and what did you expect?
+      description: A screenshot of Athom Hub (the Activity tab helps a lot).
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Which Athom device?
+      placeholder: Athom RF/IR Remote
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Athom Hub version (HACS shows it) and Home Assistant version.
+      placeholder: Athom Hub 0.6.3 · Home Assistant 2026.11
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: Settings → System → Logs, lines that mention athom_hub.
+      render: text

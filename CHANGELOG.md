@@ -2,6 +2,11 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.6.4 — 2026-11-16
+- **Tutorials**: eight short step-by-step guides with pictures and GIFs: install, copy from a Broadlink, learn a button, use remotes in Home Assistant, air conditioners, the presence sensor, the activity list, and your dashboard.
+- New README with screenshots, GIFs and one-tap "Open in HACS" and "Add integration" buttons.
+- Forms for reporting a problem or suggesting an idea.
+
 ## 0.6.3 — 2026-11-16
 - Athom Hub now says what kind of integration it is (remotes, air conditioning, presence), so Home Assistant and HACS can list it in the right place.
 

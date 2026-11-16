@@ -1,0 +1,10 @@
+name: An idea
+description: A new feature, a device to support, or a better way to do something.
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+    validations:
+      required: true
