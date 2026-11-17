@@ -4,7 +4,7 @@
 
 Open a remote and tap a button. A green tick and a short vibration mean the code was sent.
 
-![Pressing remote buttons](https://raw.githubusercontent.com/HRadhi4/Athom_For_Dummies/main/docs/gifs/press-buttons.gif)
+![Pressing remote buttons](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/press-buttons.gif)
 
 ## Real devices, not just buttons
 

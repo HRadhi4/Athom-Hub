@@ -1,6 +1,6 @@
 # 6 · Presence sensor (LD2450): room map and zones
 
-![Devices](https://raw.githubusercontent.com/HRadhi4/Athom_For_Dummies/main/docs/images/devices.png)
+![Devices](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/images/devices.png)
 
 1. Open **Devices** and tap your **Athom Presence Sensor**, then **Settings and controls**.
 2. **Room map:** the sensor is at the top, looking into the room. The people it sees are dots that move.

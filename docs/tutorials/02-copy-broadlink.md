@@ -2,7 +2,7 @@
 
 **Time: 1 minute per remote.** If a Broadlink already learned your remotes in Home Assistant, copy them in one tap.
 
-![Copying a remote from a Broadlink](https://raw.githubusercontent.com/HRadhi4/Athom_For_Dummies/main/docs/gifs/copy-broadlink.gif)
+![Copying a remote from a Broadlink](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/copy-broadlink.gif)
 
 1. Open **Athom Hub → Broadlink**.
 2. Tap a remote to see its buttons.

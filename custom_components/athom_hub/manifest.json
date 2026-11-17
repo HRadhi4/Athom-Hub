@@ -22,10 +22,10 @@
     "panel_custom",
     "websocket_api"
   ],
-  "documentation": "https://github.com/HRadhi4/Athom_For_Dummies",
+  "documentation": "https://github.com/HRadhi4/Athom-Hub",
   "integration_type": "service",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/HRadhi4/Athom_For_Dummies/issues",
+  "issue_tracker": "https://github.com/HRadhi4/Athom-Hub/issues",
   "requirements": [],
   "single_config_entry": true,
   "version": "0.6.4"

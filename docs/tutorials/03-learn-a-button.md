@@ -2,7 +2,7 @@
 
 **Time: 30 seconds per button.**
 
-![Learning a new button](https://raw.githubusercontent.com/HRadhi4/Athom_For_Dummies/main/docs/gifs/learn-button.gif)
+![Learning a new button](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/learn-button.gif)
 
 1. **Remotes → New remote.** Give it a name (for example *Living room TV*) and choose what it controls. *(Or open a remote you already have.)*
 2. Tap **Add a button**, then choose:
