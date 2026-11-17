@@ -8,7 +8,7 @@ Learn remotes · copy them from a Broadlink · turn them into real TVs, ACs, cur
 <a href="https://github.com/HRadhi4/Athom-Hub/releases/latest"><img src="https://img.shields.io/github/v/release/HRadhi4/Athom-Hub?color=6D4BFF" alt="Release"></a>
 <a href="https://github.com/HRadhi4/Athom-Hub/actions/workflows/validate.yml"><img src="https://github.com/HRadhi4/Athom-Hub/actions/workflows/validate.yml/badge.svg" alt="Validate"></a>
 <a href="LICENSE"><img src="https://img.shields.io/github/license/HRadhi4/Athom-Hub?color=2BC4A8" alt="License"></a>
-<a href="https://www.patreon.com/c/HRadhi4"><img src="https://img.shields.io/badge/Patreon-Support%20me-F96854?logo=patreon&logoColor=white" alt="Support on Patreon"></a>
+<a href="https://ko-fi.com/hradhi4"><img src="https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white" alt="Support on Ko-fi"></a>
 </p>
 
 <p align="center">
@@ -119,9 +119,9 @@ Athom Hub sends and listens through Home Assistant's `infrared` and `radio_frequ
 
 ## Support
 
-If Athom Hub makes your home nicer, you can support its development on Patreon. It helps me keep adding features and fixing problems.
+If Athom Hub makes your home nicer, you can buy me a coffee on Ko-fi. It helps me keep adding features and fixing problems.
 
-<a href="https://www.patreon.com/c/HRadhi4"><img src="https://img.shields.io/badge/Patreon-Support%20me-F96854?logo=patreon&logoColor=white&style=for-the-badge" alt="Support on Patreon"></a>
+<a href="https://ko-fi.com/hradhi4"><img src="https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?logo=kofi&logoColor=white&style=for-the-badge" alt="Support on Ko-fi"></a>
 
 ## License
 
