@@ -40,6 +40,19 @@ def _command(schema: dict[Any, Any]):
     return wrap
 
 
+@_command({vol.Required("type"): "athom_hub/presence_get", vol.Required("device_id"): str})
+async def ws_presence_get(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
+    m = hass.data[f"{DOMAIN}_presence"]
+    return {"settings": m.get(msg["device_id"]), "live": m.live(msg["device_id"])}
+
+
+@_command({vol.Required("type"): "athom_hub/presence_save", vol.Required("device_id"): str, vol.Required("settings"): dict})
+async def ws_presence_save(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
+    m = hass.data[f"{DOMAIN}_presence"]
+    s = await m.async_save(msg["device_id"], msg["settings"])
+    return {"settings": s, "live": m.live(msg["device_id"])}
+
+
 @_command({vol.Required("type"): "athom_hub/overview"})
 async def ws_overview(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
     return {"version": VERSION, "ports": hub.ports(), "devices": hub.devices(), "remotes": hub.remotes_public(),
@@ -320,5 +333,5 @@ async def ws_smartir_find(hass: HomeAssistant, connection: websocket_api.ActiveC
 @callback
 def async_register_websocket(hass: HomeAssistant) -> None:
     for handler in (ws_overview, ws_remote_save, ws_remote_delete, ws_button_save, ws_button_delete, ws_button_order,
-                    ws_press, ws_test, ws_broadlink, ws_broadlink_copy, ws_backup, ws_restore, ws_learn, ws_self_test, ws_log, ws_log_clear, ws_log_subscribe, ws_smartir, ws_smartir_copy, ws_smartir_find):
+                    ws_press, ws_test, ws_broadlink, ws_broadlink_copy, ws_backup, ws_restore, ws_learn, ws_self_test, ws_log, ws_log_clear, ws_log_subscribe, ws_smartir, ws_smartir_copy, ws_smartir_find, ws_presence_get, ws_presence_save):
         websocket_api.async_register_command(hass, handler)

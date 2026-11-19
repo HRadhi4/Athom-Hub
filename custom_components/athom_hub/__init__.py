@@ -20,9 +20,10 @@ from homeassistant.helpers.start import async_at_started
 
 from .const import DOMAIN, PANEL_ELEMENT, PANEL_ICON, PANEL_TITLE, PANEL_URL, STATIC_URL, VERSION
 from .hub import Hub
+from .presence import PresenceManager
 from .websocket import async_register_websocket
 
-PLATFORMS = [Platform.BUTTON, Platform.CLIMATE, Platform.COVER, Platform.MEDIA_PLAYER, Platform.FAN, Platform.LIGHT]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.BUTTON, Platform.CLIMATE, Platform.COVER, Platform.MEDIA_PLAYER, Platform.FAN, Platform.LIGHT]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -30,6 +31,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hub = Hub(hass)
     await hub.async_load()
     hass.data[DOMAIN] = hub
+    presence = PresenceManager(hass)
+    await presence.async_load()
+    hass.data[f"{DOMAIN}_presence"] = presence
 
     if not hass.data.get(f"{DOMAIN}_static"):
         await hass.http.async_register_static_paths(
@@ -63,6 +67,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.async_on_unload(async_at_started(hass, lambda _h: _watch()))
     entry.async_on_unload(async_track_time_interval(hass, _watch, timedelta(minutes=5)))
     entry.async_on_unload(hub.async_stop_watching)
+    entry.async_on_unload(async_at_started(hass, lambda _h: presence.start()))
+    entry.async_on_unload(presence.stop)
     return True
 
 
@@ -72,4 +78,5 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if ok:
         frontend.async_remove_panel(hass, PANEL_URL)
         hass.data.pop(DOMAIN, None)
+        hass.data.pop(f"{DOMAIN}_presence", None)
     return ok

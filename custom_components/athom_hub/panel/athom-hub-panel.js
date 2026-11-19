@@ -138,6 +138,8 @@ input,select{width:100%;min-height:46px;border-radius:14px;border:1px solid var(
 .zchip{min-height:48px;border-radius:14px;border:1px solid var(--line);background:var(--card2);color:var(--tx);font:inherit;font-size:14px;cursor:pointer;line-height:1.25;padding:6px}
 .zchip.on{outline:2px solid var(--zc,var(--acc))}
 .zchip .sw2{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--zc);margin-right:6px}
+.smrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.smrow .zchip{min-height:44px;padding:6px 12px;flex:none}
+.smlive{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.smlive span{padding:6px 12px;border-radius:999px;background:var(--card2);border:1px solid var(--line);font-size:14px}.smlive span.on{background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border-color:transparent}
 .nums{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .nums label{margin:4px 0}
 details summary{cursor:pointer;color:var(--tx2);font-size:14px;padding:10px 0;list-style-position:inside}
@@ -521,7 +523,7 @@ class AthomHubPanel extends HTMLElement {
     const file = root.getElementById("restoreFile");
     if (file) file.addEventListener("change", () => this.restore(file.files[0]));
     root.querySelectorAll("[data-ch]").forEach((el) => el.addEventListener("change", () => this.actDevice("change", el.dataset, el)));
-    if (this.s.sheet?.type === "device") this.wireMap();
+    if (this.s.sheet?.type === "device") { this.wireMap(); this.wireSmartMap(); }
     const tf = root.getElementById("tfrom");
     if (tf) tf.addEventListener("change", () => { this.s.test.from = tf.value; });
   }
@@ -805,6 +807,7 @@ Object.assign(AthomHubPanel.prototype, {
     const hidden = (sh.disabled || []).filter((e) => !hideZoneNums(e.entity_id));
     return `<div class="row between"><h2>${esc(name)}</h2><button class="pill" data-a="close">Close</button></div>
       ${this.vLiveStats(sh.id)}
+      ${radar ? this.vSmart(sh) : ""}
       ${radar ? this.vZones(sh) : ""}
       ${main.length ? `<div class="sec">Settings</div><div class="card" style="padding:4px 16px">${main.map((e) => this.vControl(e)).join("")}</div>` : ""}
       ${hidden.length ? `<div class="sec">Hidden in Home Assistant</div><div class="card" style="padding:4px 16px">${hidden.map((e) => `<div class="ctl"><div class="grow"><div class="t">${esc(this.friendly(e.entity_id)?.name || (e.original_name || e.name || e.entity_id).replace(/[-_]/g, " "))}</div><div class="s">Turned off in Home Assistant. Turn it on to use it here (takes a few seconds).</div></div><button class="pill" data-a="enableEnt" data-id="${esc(e.entity_id)}">Turn on</button></div>`).join("")}</div>` : ""}
@@ -861,7 +864,7 @@ Object.assign(AthomHubPanel.prototype, {
     const cur = draft || saved;
     const m = (v) => (v === null || v === undefined ? "" : (v / 1000).toFixed(2));
     const counts = [1, 2, 3].map((n) => Math.round(this.num(this.findEnt(sh.id, `zone_${n}_all_target_count`)) ?? 0));
-    return `<div class="sec">Room map and zones</div>
+    return `<div class="sec">The sensor's own zones</div>
       <div class="card">
         <p style="margin-top:0">The sensor is at the top, looking down into the room. Dots are people it sees right now. ${type === "Disabled" ? "<b>Zones are off.</b> Choose what zones do below to use them." : ""}</p>
         <div class="zchips">${[1, 2, 3].map((n) => { const e = this.zoneEmpty(sh.draft?.[n] || this.zoneOf(sh.id, n)); return `<button class="zchip ${n === z ? "on" : ""}" style="--zc:${ZONE_COLOURS[n - 1]}" data-a="zonePick" data-k="${n}"><span class="sw2"></span>Zone ${n}<br><small style="color:var(--tx2)">${e ? "not drawn" : `<span id="zc${n}">${counts[n - 1]}</span> inside`}</small></button>`; }).join("")}</div>
@@ -969,6 +972,7 @@ Object.assign(AthomHubPanel.prototype, {
     const tg = root.getElementById("tg");
     if (tg) tg.innerHTML = this.targetDots(sh.id);
     [1, 2, 3].forEach((n) => { const el = root.getElementById(`zc${n}`); if (el) el.textContent = Math.round(this.num(this.findEnt(sh.id, `zone_${n}_all_target_count`)) ?? 0); });
+    this.smartLive(sh);
     const ls = root.getElementById("livestats");
     if (ls) ls.outerHTML = this.vLiveStats(sh.id);
     // Settings changed somewhere else: redraw, unless the person is typing or dragging.
@@ -991,6 +995,7 @@ Object.assign(AthomHubPanel.prototype, {
         s.sheet = { type: "device", id: ds.id, zone: 1, draft: {} };
         this._sig = "";
         this.render();
+        if (this.isRadar(ds.id)) this.smartLoad(s.sheet);
         try {
           const reg = await this._hass.callWS({ type: "config/entity_registry/list" });
           if (s.sheet?.id === ds.id) { s.sheet.disabled = reg.filter((e) => e.device_id === ds.id && e.disabled_by && e.disabled_by !== "config_entry" && CONTROL_DOMAINS.includes(e.entity_id.split(".")[0])); this.render(); }
@@ -1023,6 +1028,7 @@ Object.assign(AthomHubPanel.prototype, {
         return;
       }
       case "change": {
+        if (ds.ch && ds.ch.startsWith("sm")) return this.actSmart("change", ds, el);
         if (ds.ch === "zoneNum") {
           const n = sh.zone || 1, v = parseFloat(el.value);
           if (!Number.isFinite(v)) return;
@@ -1084,6 +1090,7 @@ Object.assign(AthomHubPanel.prototype, {
         this.render(); return;
       }
       default:
+        if (a.startsWith("sm")) return this.actSmart(a, ds, el);
     }
   },
 });
@@ -1206,6 +1213,209 @@ Object.assign(AthomHubPanel.prototype, {
         else if (ev.state === "error") { this.stopFind(); sh.step = "error"; sh.why = ev.why; this.render(); }
       }, { type: "athom_hub/smartir_find", token, brand: sh.brand || null });
     } catch (e) { sh.step = "error"; sh.why = e.message || "The search could not start."; this.render(); }
+  },
+});
+
+// ---------------- smart presence (worked out by Athom Hub from where the sensor sees people)
+const SMART_COLOURS = ["#FF7A59", "#2EC4B6", "#F5B700", "#E056FD", "#4C8DFF", "#3DD68C", "#FF5C8A", "#8B6CFF"];
+
+Object.assign(AthomHubPanel.prototype, {
+  async smartLoad(sh) {
+    try {
+      const r = await this.ws("presence_get", { device_id: sh.id });
+      if (this.s.sheet !== sh) return;
+      sh.smart = { set: r.settings, live: r.live, pick: "room", dirty: false };
+      this.render();
+    } catch (e) { sh.smart = { error: e.message || "Could not load." }; this.render(); }
+  },
+
+  async smartLive(sh) {
+    const sm = sh.smart;
+    if (!sm || !sm.set || this._dragging || Date.now() - (sm.t || 0) < 1500) return;
+    sm.t = Date.now();
+    try {
+      const r = await this.ws("presence_get", { device_id: sh.id });
+      sm.live = r.live;
+      const el = this.shadowRoot.getElementById("smlive"); if (el) el.outerHTML = this.vSmartLive(sm);
+      const g = this.shadowRoot.getElementById("smpeople"); if (g) g.innerHTML = this.smartDots(sh);
+    } catch { /* next time */ }
+  },
+
+  vSmartLive(sm) {
+    const l = sm.live || {};
+    if (!l.running) return `<div class="smlive" id="smlive"><span>${sm.set.enabled ? "Press Save to start" : "Off"}</span></div>`;
+    const zones = sm.set.zones.filter((z) => z.kind === "detect");
+    return `<div class="smlive" id="smlive"><span class="${l.room ? "on" : ""}">Room: ${l.room ? `someone there · ${l.counts?.room || 0}` : "empty"}</span>${zones.map((z) => `<span class="${l.zones?.[z.id] ? "on" : ""}">${esc(z.name)}: ${l.zones?.[z.id] ? "someone" : "empty"}</span>`).join("")}</div>`;
+  },
+
+  smartDots(sh) {
+    const people = sh.smart?.live?.people;
+    const list = people || this.targets(sh.id).map((t) => ({ ...t, counted: true }));
+    return list.map((t) => `<circle cx="${t.x}" cy="${Math.abs(t.y)}" r="300" fill="${t.counted ? "#FFB84D" : "#9AA0B4"}" fill-opacity=".25"/><circle cx="${t.x}" cy="${Math.abs(t.y)}" r="150" fill="${t.counted ? "#FFB84D" : "#9AA0B4"}" stroke="#fff" stroke-width="40"/>${t.why ? `<text x="${t.x + 220}" y="${Math.abs(t.y) - 200}" font-size="200" fill="currentColor" fill-opacity=".7">${esc(t.why)}</text>` : ""}`).join("");
+  },
+
+  vSmart(sh) {
+    const sm = sh.smart;
+    if (!sm) return `<div class="sec">Smart presence</div><div class="card"><p class="note">Loading…</p></div>`;
+    if (sm.error) return `<div class="sec">Smart presence</div><div class="card"><p class="note">${esc(sm.error)}</p></div>`;
+    const S = sm.set, pick = sm.pick;
+    const zone = S.zones.find((z) => z.id === pick);
+    const m = (v) => (v / 1000).toFixed(2);
+    const chip = (id, label, colour) => `<button class="zchip ${pick === id ? "on" : ""}" style="--zc:${colour}" data-a="smPick" data-k="${id}"><span class="sw2"></span>${esc(label)}</button>`;
+    const zi = (z) => S.zones.indexOf(z);
+    return `<div class="sec">Smart presence</div>
+      <div class="card">
+        <div class="ctl"><div class="grow"><div class="t">Smart presence</div><div class="s">Athom Hub works out who is really in the room from where the sensor sees people. It adds “Someone in the room” and one sensor for each named zone.</div></div><button class="tog ${S.enabled ? "on" : ""}" data-a="smEnable" aria-label="Smart presence"></button></div>
+        ${S.enabled ? `
+        ${this.vSmartLive(sm)}
+        <div class="smrow">${chip("room", "Room shape", "#8B6CFF")}${S.zones.map((z) => chip(z.id, z.kind === "ignore" ? `${z.name} (ignored)` : z.name, z.kind === "ignore" ? "#9AA0B4" : SMART_COLOURS[zi(z) % 8])).join("")}
+          ${S.zones.length < 8 ? `<button class="zchip" data-a="smAdd" data-k="detect">+ Zone</button><button class="zchip" data-a="smAdd" data-k="ignore">+ Ignore area</button>` : ""}</div>
+        ${this.vSmartMap(sh)}
+        <p class="note">${pick === "room" ? "Drag on the map to draw the room's walls. People outside it are not counted." : zone?.kind === "ignore" ? "Draw around a fan, a curtain or a plant. Movement there is not counted." : "Drag on the map to draw this zone. Drag inside it to move it, or a corner to resize it."} Grey dots are not counted, with the reason next to them.</p>
+        ${pick === "room" ? `
+          <div class="ctl"><div class="grow"><div class="t">Furthest it looks</div><div class="s">People further than this are ignored.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" step="0.5" min="0.5" max="8" data-ch="smRange" value="${m(S.range)}" style="max-width:100px"><span class="note" style="margin:0">m</span></span></div>
+          ${S.room ? `<div class="row"><button class="pill" data-a="smNoRoom">Remove the room shape</button></div>` : ""}`
+        : zone ? `
+          <div class="ctl"><div class="grow"><div class="t">Name</div></div><input type="text" data-ch="smName" value="${esc(zone.name)}" style="max-width:200px"></div>
+          ${zone.kind === "detect" ? `<div class="ctl"><div class="grow"><div class="t">Wait before “empty”</div><div class="s">Seconds with nobody here before it says empty.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="3600" step="1" data-ch="smZoneOff" value="${zone.off_delay}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>` : ""}
+          <div class="row"><button class="pill danger" data-a="smDel">Remove ${esc(zone.name)}</button></div>` : ""}
+        <details ${sh.smExact ? "open" : ""} data-smexact><summary>Exact numbers (metres)</summary>
+          <div class="nums">${[["x1", "Left edge"], ["x2", "Right edge"], ["y1", "Near edge"], ["y2", "Far edge"]].map(([k, t]) => { const b = pick === "room" ? S.room : zone; return `<div><label>${t}</label><input type="number" step="0.05" data-ch="smEdge" data-k="${k}" value="${b ? m(b[k]) : ""}"></div>`; }).join("")}</div>
+          <p class="note">Left and right are as seen from the sensor. 0 is straight ahead.</p>
+        </details>
+        <div class="sec" style="margin-top:14px">How it decides</div>
+        <div class="ctl"><div class="grow"><div class="t">Must walk in at least</div><div class="s">A new person must move this far before the room counts as taken. Stops fans and curtains from turning it on. 0 is off.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="150" step="5" data-ch="smMove" value="${Math.round(S.min_move / 10)}" style="max-width:100px"><span class="note" style="margin:0">cm</span></span></div>
+        <div class="ctl"><div class="grow"><div class="t">Use the motion sensor too</div><div class="s">Movement it feels also counts as someone there.</div></div><button class="tog ${S.use_pir ? "on" : ""}" data-a="smPir" aria-label="Use the motion sensor too"></button></div>
+        <div class="ctl"><div class="grow"><div class="t">Wait before “someone there”</div><div class="s">Seconds someone must stay before it turns on. 0 is right away.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="60" step="1" data-ch="smOn" value="${S.on_delay}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>
+        <div class="ctl"><div class="grow"><div class="t">Wait before “empty”</div><div class="s">Seconds with nobody before the room counts as empty.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="3600" step="5" data-ch="smOff" value="${S.off_delay}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>` : ""}
+        <div class="row" style="margin-top:12px"><button class="pill main" data-a="smSave" ${sm.dirty ? "" : "disabled"}>Save smart presence</button>${sm.dirty ? `<button class="pill" data-a="smUndo">Undo</button>` : ""}</div>
+      </div>`;
+  },
+
+  vSmartMap(sh) {
+    const S = sh.smart.set, R = S.range, s60 = Math.sin(Math.PI / 3), c60 = Math.cos(Math.PI / 3);
+    let grid = "";
+    for (let d = 1000; d <= 7000; d += 1000) grid += `<line x1="-5000" y1="${d}" x2="5000" y2="${d}" stroke="currentColor" stroke-opacity=".08" stroke-width="20"/><text x="-4900" y="${d - 60}" font-size="220" fill="currentColor" fill-opacity=".45">${d / 1000} m</text>`;
+    const fan = `<path d="M0 0 L${R * s60} ${R * c60} A${R} ${R} 0 0 1 ${-R * s60} ${R * c60} Z" fill="#8B6CFF" fill-opacity=".08" stroke="#8B6CFF" stroke-opacity=".5" stroke-width="25" stroke-dasharray="100 70"/>`;
+    const rect = (b, colour, on, label, ignore) => {
+      if (!b) return "";
+      const x = b.x1, y = b.y1, w = b.x2 - b.x1, h = b.y2 - b.y1;
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="60" fill="${ignore ? "url(#smhatch)" : colour}" fill-opacity="${ignore ? 1 : on ? 0.24 : 0.1}" stroke="${colour}" stroke-width="${on ? 50 : 25}" ${on ? "" : 'stroke-dasharray="120 80"'}/>
+        <text x="${x + 120}" y="${y + 300}" font-size="230" font-weight="700" fill="${colour}">${esc(label)}</text>
+        ${on ? [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="110" fill="#fff" stroke="${colour}" stroke-width="40"/>`).join("") : ""}`;
+    };
+    const room = S.room ? `<rect x="${S.room.x1}" y="${S.room.y1}" width="${S.room.x2 - S.room.x1}" height="${S.room.y2 - S.room.y1}" fill="none" stroke="currentColor" stroke-opacity=".85" stroke-width="${sh.smart.pick === "room" ? 70 : 45}"/>${sh.smart.pick === "room" ? [[S.room.x1, S.room.y1], [S.room.x2, S.room.y1], [S.room.x1, S.room.y2], [S.room.x2, S.room.y2]].map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="110" fill="#fff" stroke="#8B6CFF" stroke-width="40"/>`).join("") : ""}` : "";
+    const zones = S.zones.map((z, i) => rect(z, z.kind === "ignore" ? "#9AA0B4" : SMART_COLOURS[i % 8], z.id === sh.smart.pick, z.name, z.kind === "ignore")).join("");
+    return `<svg class="map" id="smap" viewBox="-5000 -400 10000 8100" style="color:var(--tx)">
+      <defs><pattern id="smhatch" width="200" height="200" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="200" height="200" fill="#9AA0B4" fill-opacity=".08"/><line x1="0" y1="0" x2="0" y2="200" stroke="#9AA0B4" stroke-opacity=".5" stroke-width="40"/></pattern></defs>
+      ${grid}${fan}<g id="smshapes">${room}${zones}</g>
+      <rect x="-450" y="-330" width="900" height="260" rx="90" fill="#8B6CFF"/><text x="0" y="-140" font-size="170" text-anchor="middle" fill="#fff" font-weight="700">SENSOR</text>
+      <g id="smpeople">${this.smartDots(sh)}</g>
+    </svg>`;
+  },
+
+  smartBox(sm) { return sm.pick === "room" ? sm.set.room : sm.set.zones.find((z) => z.id === sm.pick); },
+
+  smartSetBox(sm, b) {
+    sm.dirty = true;
+    if (sm.pick === "room") { sm.set.room = b; return; }
+    const z = sm.set.zones.find((x) => x.id === sm.pick);
+    if (z && b) Object.assign(z, b);
+  },
+
+  wireSmartMap() {
+    const svg = this.shadowRoot.getElementById("smap");
+    const sh = this.s.sheet, sm = sh?.smart;
+    if (!svg || !sm?.set) return;
+    this.shadowRoot.querySelector("details[data-smexact]")?.addEventListener("toggle", (e) => { sh.smExact = e.target.open; });
+    const pt = (ev) => { const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return { x: q.x, y: q.y }; };
+    const snap = (v) => Math.round(v / 50) * 50;
+    const clamp = (z) => ({ x1: Math.max(-4900, Math.min(4900, Math.min(z.x1, z.x2))), x2: Math.max(-4900, Math.min(4900, Math.max(z.x1, z.x2))), y1: Math.max(0, Math.min(7600, Math.min(z.y1, z.y2))), y2: Math.max(0, Math.min(7600, Math.max(z.y1, z.y2))) });
+    let drag = null, start = null;
+    svg.addEventListener("pointerdown", (ev) => {
+      const p = pt(ev), box = this.smartBox(sm);
+      start = box ? { ...box } : null;
+      const near = (a, b) => Math.abs(a - b) < 350;
+      drag = null;
+      if (box) {
+        const cx = near(p.x, box.x1) ? "x1" : near(p.x, box.x2) ? "x2" : null, cy = near(p.y, box.y1) ? "y1" : near(p.y, box.y2) ? "y2" : null;
+        if (cx && cy) drag = { mode: "corner", cx, cy, box: { ...box } };
+        else if (p.x > box.x1 && p.x < box.x2 && p.y > box.y1 && p.y < box.y2) drag = { mode: "move", from: p, box: { ...box } };
+      }
+      if (!drag) drag = { mode: "draw", from: { x: snap(p.x), y: snap(Math.max(0, p.y)) } };
+      this._dragging = true; svg.setPointerCapture(ev.pointerId); ev.preventDefault();
+    });
+    svg.addEventListener("pointermove", (ev) => {
+      if (!drag) return;
+      const p = pt(ev); let z;
+      if (drag.mode === "draw") z = { x1: drag.from.x, y1: drag.from.y, x2: snap(p.x), y2: snap(Math.max(0, p.y)) };
+      else if (drag.mode === "move") { const dx = snap(p.x - drag.from.x), dy = snap(p.y - drag.from.y); z = { x1: drag.box.x1 + dx, x2: drag.box.x2 + dx, y1: drag.box.y1 + dy, y2: drag.box.y2 + dy }; }
+      else { z = { ...drag.box }; z[drag.cx] = snap(p.x); z[drag.cy] = snap(Math.max(0, p.y)); }
+      const b = clamp(z), cur = this.smartBox(sm);
+      if (sm.pick === "room") sm.set.room = b; else if (cur) Object.assign(cur, b);
+      const g = this.shadowRoot.getElementById("smshapes");
+      if (g) g.innerHTML = this.vSmartMap(sh).match(/<g id="smshapes">([\s\S]*?)<\/g>\s*<rect x="-450"/)[1];
+    });
+    const end = () => {
+      if (!drag) return;
+      drag = null; this._dragging = false;
+      const b = this.smartBox(sm);
+      if (b && (b.x2 - b.x1 < 200 || b.y2 - b.y1 < 200)) { if (sm.pick === "room") sm.set.room = start; else if (start) Object.assign(b, start); }
+      else sm.dirty = true;
+      this.render();
+    };
+    svg.addEventListener("pointerup", end);
+    svg.addEventListener("pointercancel", end);
+  },
+
+  async actSmart(a, ds, el) {
+    const sh = this.s.sheet, sm = sh?.smart;
+    if (!sm?.set) return;
+    const S = sm.set;
+    const zone = S.zones.find((z) => z.id === sm.pick);
+    switch (a) {
+      case "smEnable": S.enabled = !S.enabled; sm.dirty = true; if (!S.enabled) return this.actSmart("smSave", ds); break;
+      case "smPick": sm.pick = ds.k; break;
+      case "smAdd": {
+        const n = S.zones.filter((z) => z.kind === ds.k).length + 1;
+        const id = `z${Date.now().toString(36).slice(-6)}`;
+        S.zones.push({ id, name: ds.k === "ignore" ? `Ignore area ${n}` : `Zone ${n}`, kind: ds.k, off_delay: S.off_delay, x1: -1000, x2: 1000, y1: 1500 + 300 * (n - 1), y2: 3000 + 300 * (n - 1) });
+        sm.pick = id; sm.dirty = true; break;
+      }
+      case "smDel": S.zones = S.zones.filter((z) => z.id !== sm.pick); sm.pick = "room"; sm.dirty = true; break;
+      case "smNoRoom": S.room = null; sm.dirty = true; break;
+      case "smPir": S.use_pir = !S.use_pir; sm.dirty = true; break;
+      case "smUndo": await this.smartLoad(sh); return;
+      case "smSave": {
+        try {
+          const r = await this.ws("presence_save", { device_id: sh.id, settings: S });
+          sm.set = r.settings; sm.live = r.live; sm.dirty = false;
+          if (sm.pick !== "room" && !sm.set.zones.some((z) => z.id === sm.pick)) sm.pick = "room";
+          this.toast(S.enabled ? "Saved. The new sensors are in Home Assistant." : "Smart presence is off");
+        } catch (e) { this.toast(e.message || "Could not save.", true); }
+        break;
+      }
+      case "change": {
+        const v = parseFloat(el.value);
+        if (ds.ch === "smName" && zone) zone.name = el.value.trim() || zone.name;
+        else if (!Number.isFinite(v)) return;
+        else if (ds.ch === "smRange") S.range = Math.round(v * 1000);
+        else if (ds.ch === "smMove") S.min_move = Math.round(v * 10);
+        else if (ds.ch === "smOn") S.on_delay = v;
+        else if (ds.ch === "smOff") S.off_delay = v;
+        else if (ds.ch === "smZoneOff" && zone) zone.off_delay = v;
+        else if (ds.ch === "smEdge") {
+          const b = { ...(this.smartBox(sm) || { x1: -1000, x2: 1000, y1: 500, y2: 3000 }) };
+          b[ds.k] = Math.round(v * 1000);
+          const fixed = { x1: Math.min(b.x1, b.x2), x2: Math.max(b.x1, b.x2), y1: Math.max(0, Math.min(b.y1, b.y2)), y2: Math.max(b.y1, b.y2) };
+          if (fixed.x2 - fixed.x1 >= 200 && fixed.y2 - fixed.y1 >= 200) this.smartSetBox(sm, fixed);
+        }
+        sm.dirty = true;
+        break;
+      }
+      default: return;
+    }
+    this.render();
   },
 });
 

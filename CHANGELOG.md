@@ -2,6 +2,15 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.7.0 — 2026-11-19
+- **Smart presence for Athom radar sensors.** Open the sensor in Athom Hub and turn on Smart presence:
+  - **Room shape and range:** draw the room's walls and set how far it looks. People behind a wall or in the next room are not counted.
+  - **Named zones:** add zones like Bed, Sofa or Desk. Each one gets its own “Someone at …” sensor in Home Assistant, with its own wait before “empty”.
+  - **Ignore areas:** draw around a fan, a curtain or a plant so its movement never counts.
+  - **Smarter decisions:** a new person must really walk in before the room counts as taken, the motion sensor can help, and you choose how long to wait before “someone there” and before “empty”.
+  - The map shows each person the sensor sees, grey with the reason when they are not counted.
+- Nothing on the sensor itself is changed; its own three zones still work as before.
+
 ## 0.6.5 — 2026-11-19
 - **Air conditioners follow the real remote better.** Turning the AC off with its own remote now shows Off in Home Assistant. A real remote's off also carries its temperature, so it never matched the code table exactly; Athom Hub now reads the setting bit by bit and spots the on/off bit.
 - Settings the remote sends with small extras (like swing or a light on the AC) are now recognised as the closest setting instead of being ignored.
