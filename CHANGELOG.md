@@ -2,6 +2,10 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.6.5 — 2026-11-19
+- **Air conditioners follow the real remote better.** Turning the AC off with its own remote now shows Off in Home Assistant. A real remote's off also carries its temperature, so it never matched the code table exactly; Athom Hub now reads the setting bit by bit and spots the on/off bit.
+- Settings the remote sends with small extras (like swing or a light on the AC) are now recognised as the closest setting instead of being ignored.
+
 ## 0.6.4 — 2026-11-16
 - **Tutorials**: eight short step-by-step guides with pictures and GIFs: install, copy from a Broadlink, learn a button, use remotes in Home Assistant, air conditioners, the presence sensor, the activity list, and your dashboard.
 - New README with screenshots, GIFs and one-tap "Open in HACS" and "Add integration" buttons.

@@ -287,3 +287,73 @@ def best_match(captures: list[list[int]], candidates: dict) -> object | None:
                 if best_score is None or score < best_score:
                     best, best_score = key, score
     return best
+
+
+# ---------------------------------------------------------------- reading an AC remote by its bits
+# A real AC remote sends its whole setting every press. Its "off" also carries the temperature and fan
+# it shows, so it seldom equals the one "off" code in a code table. Comparing bit by bit finds it anyway.
+
+def symbols(frame: list[int]) -> str:
+    """One frame as text: two characters per pulse-and-gap pair, "1" for long, "0" for short."""
+    def classes(values: list[int]) -> list[str]:
+        if not values:
+            return []
+        lo = min(values)
+        usual = [v for v in values if v <= 4 * lo]
+        hi = max(usual)
+        if hi < 1.6 * lo:
+            return ["0"] * len(values)
+        cut = (lo + hi) / 2
+        return ["1" if v > cut else "0" for v in values]
+    frame = tidy(frame)
+    marks = [abs(v) for v in frame[0::2]]
+    gaps = [abs(v) for v in frame[1::2]][: len(marks)]
+    gaps = gaps[:-1] if len(gaps) == len(marks) else gaps      # the pause at the end says nothing
+    m, g = classes(marks), classes(gaps) + ["0"]
+    return "".join(a + b for a, b in zip(m, g))
+
+
+def _frames_bits(timings: list[int]) -> list[str]:
+    return [symbols(f) for f in split_frames(timings) if len(f) >= 16]
+
+
+def _distance(a: str, b: str) -> float | None:
+    """Share of symbols that differ, or None when the frames are not the same kind."""
+    if abs(len(a) - len(b)) > 4 or min(len(a), len(b)) < 16:
+        return None
+    n = min(len(a), len(b))
+    return sum(x != y for x, y in zip(a[:n], b[:n])) / n
+
+
+def read_setting(captures: list[list[int]], candidates: dict, off_key=("off",), most: float = 0.15) -> object | None:
+    """Which setting of an AC code table ({key: timings}) a real remote just sent, if any.
+
+    Off is told apart by the bits that are the same in every "on" code and different in the "off" code
+    (the power bit); everything else (mode, fan, temperature) is the closest "on" code."""
+    heard = [symbols(f) for c in captures for f in split_frames(c) if len(f) >= 16]
+    if not heard:
+        return None
+    table = {key: _frames_bits(t) for key, t in candidates.items()}
+    best, best_d = None, None
+    for key, frames in table.items():
+        if key == off_key:
+            continue
+        for h in heard:
+            for f in frames:
+                d = _distance(h, f)
+                if d is not None and (best_d is None or d < best_d):
+                    best, best_d = key, d
+    off_frames = table.get(off_key) or []
+    for h in heard:
+        for off in off_frames:
+            d_off = _distance(h, off)
+            if d_off is None:
+                continue
+            ons = [f for key, frames in table.items() if key != off_key for f in frames if len(f) == len(off)]
+            power = [i for i in range(len(off)) if ons and all(f[i] == ons[0][i] for f in ons) and off[i] != ons[0][i]]
+            if power and len(h) >= len(off):
+                if sum(h[i] == off[i] for i in power) >= 0.6 * len(power):
+                    return off_key
+            elif d_off <= most and (best_d is None or d_off < best_d):
+                return off_key
+    return best if best_d is not None and best_d <= most else None

@@ -43,3 +43,24 @@ def test_other_files_are_refused():
     except smartir.TableError:
         return
     raise AssertionError
+
+
+def test_real_remote_off_is_read_from_its_power_bit():
+    """A real remote's "off" carries its temperature too, so it is not the table's own off code."""
+    t = smartir.table_from_smartir(DATA)
+    cand = {k: codes.broadlink_decode(v)["timings"] for k, v in smartir.all_codes(t).items()}
+    assert all(codes.read_setting([v], cand) == k for k, v in cand.items())
+    off = codes._frames_bits(cand[("off",)])[0]
+    frame = codes.split_frames(cand[("cool", "auto", 22)])[0]
+    ons = [codes._frames_bits(v)[0] for k, v in cand.items() if k != ("off",)]
+    power = [i for i in range(len(off)) if all(b[i] == ons[0][i] for b in ons if len(b) == len(off)) and off[i] != ons[0][i]]
+    assert power
+    gaps = [abs(x) for x in frame[1::2]]
+    short, long = min(gaps), max(g for g in gaps if g <= 4 * min(gaps))
+    real_off = list(frame)
+    for i in power:
+        assert i % 2 == 1
+        real_off[i] = -(long if off[i] == "1" else short)
+    assert codes.read_setting([real_off], cand) == ("off",)
+    assert codes.read_setting([frame], cand) == ("cool", "auto", 22)
+    assert codes.read_setting([codes.nec()[:]] if hasattr(codes, "nec") else [[9000, -4500] + [560, -560] * 32 + [560, -40000]], cand) is None

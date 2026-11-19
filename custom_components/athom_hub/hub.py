@@ -377,6 +377,9 @@ class Hub:
                 if not table:
                     continue
                 key = codes.best_match(captures, table)
+                if key is None:
+                    # a real remote's off (or a setting with other extras) seldom equals the table's code exactly
+                    key = codes.read_setting(captures, table)
                 if key is not None:
                     match = f"{remote['name']} · {smartir.describe_setting(key)}"
                     # Our own send, heard back a moment later: it must not undo a newer setting.
