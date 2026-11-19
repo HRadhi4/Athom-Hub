@@ -10,7 +10,11 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
+import logging
+
 from .const import DOMAIN
+
+_LOGGER = logging.getLogger(__name__)
 from .presence import SIGNAL_PRESENCE, SIGNAL_PRESENCE_SETUP, PresenceManager
 
 
@@ -29,10 +33,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddCon
         for device_id, s in manager.settings.items():
             if not s["enabled"]:
                 continue
-            wanted[f"{device_id}_room"] = (device_id, None)
+            wanted[f"smart_{device_id}_room"] = (device_id, None)
             for z in s["zones"]:
                 if z["kind"] == "detect":
-                    wanted[f"{device_id}_{z['id']}"] = (device_id, z["id"])
+                    wanted[f"smart_{device_id}_{z['id']}"] = (device_id, z["id"])
         new = []
         for uid, (device_id, zid) in wanted.items():
             if uid in known:
@@ -44,6 +48,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddCon
                 continue
             known[uid] = PresenceSensor(manager, device, zid)
             new.append(known[uid])
+        _LOGGER.debug("smart presence: wanted %s, adding %s", list(wanted), [e.unique_id for e in new])
         if new:
             add(new)
         reg = er.async_get(hass)
@@ -65,7 +70,7 @@ class PresenceSensor(BinarySensorEntity):
         self._m = manager
         self._dev = device.id
         self._zone = zone_id
-        self._attr_unique_id = f"{device.id}_{zone_id or 'room'}"
+        self._attr_unique_id = f"smart_{device.id}_{zone_id or 'room'}"
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
         radar = device.name_by_user or device.name or "Radar"
         self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, f"presence_{device.id}")}, name=f"{radar} smart presence",

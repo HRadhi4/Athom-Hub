@@ -46,6 +46,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         dev_reg = dr.async_get(hass)
         alive = {(DOMAIN, remote_id) for remote_id in hub.store.remotes}
         for device in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
+            if any(i[0] == DOMAIN and str(i[1]).startswith("presence_") for i in device.identifiers):
+                continue                           # a smart presence device, not a remote
             if not device.identifiers & alive:
                 dev_reg.async_remove_device(device.id)
             else:
