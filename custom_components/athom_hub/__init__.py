@@ -64,10 +64,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hub.async_watch_receivers()
 
     # Start listening once everything is up, and check again now and then (devices come and go).
-    entry.async_on_unload(async_at_started(hass, lambda _h: _watch()))
+    @callback
+    def _started(_hass: HomeAssistant) -> None:
+        _watch()
+        presence.start()
+
+    entry.async_on_unload(async_at_started(hass, _started))
     entry.async_on_unload(async_track_time_interval(hass, _watch, timedelta(minutes=5)))
     entry.async_on_unload(hub.async_stop_watching)
-    entry.async_on_unload(async_at_started(hass, lambda _h: presence.start()))
     entry.async_on_unload(presence.stop)
     return True
 

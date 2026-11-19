@@ -20,8 +20,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddCon
     # 0.7.0 tied these sensors to the radar by its network address, which made a second device: tidy it away.
     devs = dr.async_get(hass)
     for device in dr.async_entries_for_config_entry(devs, entry.entry_id):
-        if not device.identifiers and device.connections:
-            devs.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+        if not device.identifiers and device.connections and device.config_entries == {entry.entry_id}:
+            devs.async_remove_device(device.id)
 
     @callback
     def _sync() -> None:

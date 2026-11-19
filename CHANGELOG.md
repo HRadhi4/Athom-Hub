@@ -2,6 +2,9 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.7.2 — 2026-11-19
+- Fix: smart presence sensors did not appear after a restart, and the receivers started listening in the wrong place at start-up.
+
 ## 0.7.1 — 2026-11-19
 - Smart presence sensors now sit on their own device, “… smart presence”, instead of an unnamed copy of the radar.
 
