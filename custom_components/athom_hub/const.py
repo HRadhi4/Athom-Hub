@@ -1,7 +1,7 @@
 """Names used across Athom Hub."""
 
 DOMAIN = "athom_hub"
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 
 STORAGE_KEY = DOMAIN
 STORAGE_VERSION = 1

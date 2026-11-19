@@ -11,7 +11,7 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
-from . import backup, codes, icons, roles
+from . import backup, codes, icons, roles, smartir
 from .const import DOMAIN, SIGNAL_LOG, LEARN_SECONDS, LEARN_SETTLE_SECONDS, REMOTE_KINDS, VERSION
 from .hub import Hub, HubError
 from .store import clean_name
@@ -154,7 +154,7 @@ async def ws_restore(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict
     """Add the remotes of a backup file (remotes already here are replaced by id, others are kept)."""
     added = 0
     for item in msg["remotes"]:
-        clean = backup.clean_remote(item, codes.tidy)
+        clean = backup.clean_remote(item, codes.tidy, smartir.clean_table)
         if clean is None:
             continue
         remote = hub.store.upsert_remote({k: clean[k] for k in ("id", "name", "kind", "emitter_ir", "emitter_rf", "temp_sensor")})

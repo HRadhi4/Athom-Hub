@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
+from . import smartir
 from .const import REMOTE_KINDS, STORAGE_KEY, STORAGE_VERSION
 
 
@@ -37,6 +38,13 @@ class HubStore:
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.remotes = data.get("remotes") or {}
+        for remote in self.remotes.values():
+            # a table restored from a hand-edited backup by 0.8.0 could stop the page from loading
+            if remote.get("table"):
+                try:
+                    remote["table"] = smartir.clean_table(remote["table"])
+                except Exception:  # noqa: BLE001
+                    remote.pop("table", None)
 
     async def async_save(self) -> None:
         await self._store.async_save({"remotes": self.remotes})

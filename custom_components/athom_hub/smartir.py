@@ -54,6 +54,69 @@ def table_from_smartir(data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _whole(value: Any, fallback: int, low: int, high: int) -> int:
+    try:
+        number = int(float(value))
+    except (TypeError, ValueError):
+        return fallback
+    return max(low, min(high, number))
+
+
+def clean_table(table: Any) -> dict[str, Any]:
+    """A code table from somewhere we don't trust (a backup file), checked the same way as a fresh
+    SmartIR file and rebuilt with only the fields Athom Hub uses. Raises TableError when unusable."""
+    if not isinstance(table, dict) or not isinstance(table.get("codes"), dict):
+        raise TableError("The code table is not readable.")
+    raw = table["codes"]
+    if not isinstance(raw.get("off"), str):
+        raise TableError("The code table has no “off” code.")
+    try:
+        codes.broadlink_decode(raw["off"])
+    except codes.CodeError as err:
+        raise TableError("The code table's codes are not readable.") from err
+    table_codes: dict[str, Any] = {"off": raw["off"]}
+    modes = []
+    for mode in table.get("modes") if isinstance(table.get("modes"), list) else []:
+        if mode not in KNOWN_MODES or mode in modes or not isinstance(raw.get(mode), dict):
+            continue
+        by_fan = {}
+        for fan, temps in raw[mode].items():
+            if not isinstance(fan, str) or not isinstance(temps, dict):
+                continue
+            kept = {}
+            for temp, code in temps.items():
+                if not isinstance(code, str):
+                    continue
+                if temp == "any":
+                    kept["any"] = code
+                else:
+                    try:
+                        kept[str(int(float(temp)))] = code
+                    except (TypeError, ValueError):
+                        continue
+            if kept:
+                by_fan[fan[:20]] = kept
+        if by_fan:
+            modes.append(mode)
+            table_codes[mode] = by_fan
+    if not modes:
+        raise TableError("The code table has no modes.")
+    low = _whole(table.get("min"), 16, 5, 40)
+    high = _whole(table.get("max"), 30, low, 40)
+    fans = table.get("fans") if isinstance(table.get("fans"), list) else []
+    models = table.get("models") if isinstance(table.get("models"), list) else []
+    return {
+        "maker": " ".join(str(table.get("maker") or "").split())[:60],
+        "models": [" ".join(str(m).split())[:60] for m in models][:6],
+        "min": low,
+        "max": high,
+        "step": _whole(table.get("step"), 1, 1, 5),
+        "modes": modes,
+        "fans": [f for f in fans if isinstance(f, str) and any(f in table_codes[m] for m in modes)],
+        "codes": table_codes,
+    }
+
+
 def count(table: dict[str, Any]) -> int:
     return 1 + sum(len(t) for m in table["modes"] for t in table["codes"].get(m, {}).values())
 

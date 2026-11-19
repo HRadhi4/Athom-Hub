@@ -64,3 +64,20 @@ def test_real_remote_off_is_read_from_its_power_bit():
     assert codes.read_setting([real_off], cand) == ("off",)
     assert codes.read_setting([frame], cand) == ("cool", "auto", 22)
     assert codes.read_setting([codes.nec()[:]] if hasattr(codes, "nec") else [[9000, -4500] + [560, -560] * 32 + [560, -40000]], cand) is None
+
+
+def test_hand_edited_tables_are_checked():
+    good = smartir.table_from_smartir(DATA)
+    assert smartir.clean_table(good) == good                       # a real table comes back unchanged
+    for bad in ({"codes": {"off": good["codes"]["off"]}},           # no modes, fans or min
+                {"codes": {"x": 1}}, {"codes": []}, "nope",
+                {**good, "codes": {**good["codes"], "off": "not a code"}}):
+        try:
+            smartir.clean_table(bad)
+        except smartir.TableError:
+            continue
+        raise AssertionError(bad)
+    odd = {**good, "min": "cold", "fans": ["auto", 7], "modes": good["modes"] + ["party"]}
+    fixed = smartir.clean_table(odd)
+    assert fixed["min"] == 16 and 7 not in fixed["fans"] and "party" not in fixed["modes"]
+    assert smartir.count(fixed) == smartir.count(good)

@@ -36,8 +36,11 @@ def _text(value: object, fallback: str, size: int = 60) -> str:
     return text or fallback
 
 
-def clean_remote(item: object, tidy=lambda t: t) -> dict | None:
-    """One remote from a backup file, made safe; None when it is not a remote."""
+def clean_remote(item: object, tidy=lambda t: t, check_table=None) -> dict | None:
+    """One remote from a backup file, made safe; None when it is not a remote.
+
+    check_table cleans an AC code table or raises; without it, or when it fails, the table is left out
+    (the remote and its buttons still come back) so a bad table can never break the page."""
     if not isinstance(item, dict) or not isinstance(item.get("buttons"), list):
         return None
     remote = {
@@ -49,9 +52,11 @@ def clean_remote(item: object, tidy=lambda t: t) -> dict | None:
         "temp_sensor": _entity(item.get("temp_sensor")),
         "buttons": [],
     }
-    table = item.get("table")
-    if isinstance(table, dict) and isinstance(table.get("codes"), (dict, list)) and table["codes"]:
-        remote["table"] = table
+    if item.get("table") and check_table is not None:
+        try:
+            remote["table"] = check_table(item["table"])
+        except Exception:  # noqa: BLE001 - any problem in a hand-edited table just drops the table
+            pass
     taken: set[str] = set()
     for b in item["buttons"]:
         if not isinstance(b, dict):

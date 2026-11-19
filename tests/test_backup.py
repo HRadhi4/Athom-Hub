@@ -29,3 +29,15 @@ def test_good_backup_keeps_its_ids():
 
 def test_not_a_remote():
     assert backup.clean_remote("x") is None and backup.clean_remote({"name": "no buttons"}) is None
+
+
+def test_bad_tables_are_dropped_not_kept():
+    def check(table):
+        if not table.get("modes"):
+            raise ValueError("no modes")
+        return table
+    item = {"name": "AC", "buttons": [{"timings": T}], "table": {"codes": {"off": "x"}}}
+    assert "table" not in backup.clean_remote(item, check_table=check)
+    assert "table" not in backup.clean_remote(item)                       # no checker: never trusted
+    ok = {**item, "table": {"modes": ["cool"], "codes": {"off": "x"}}}
+    assert backup.clean_remote(ok, check_table=check)["table"]["modes"] == ["cool"]
