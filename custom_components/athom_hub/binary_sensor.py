@@ -17,6 +17,11 @@ from .presence import SIGNAL_PRESENCE, SIGNAL_PRESENCE_SETUP, PresenceManager
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, add: AddConfigEntryEntitiesCallback) -> None:
     manager: PresenceManager = hass.data[f"{DOMAIN}_presence"]
     known: dict[str, PresenceSensor] = {}
+    # 0.7.0 tied these sensors to the radar by its network address, which made a second device: tidy it away.
+    devs = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(devs, entry.entry_id):
+        if not device.identifiers and device.connections:
+            devs.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
 
     @callback
     def _sync() -> None:
@@ -62,7 +67,9 @@ class PresenceSensor(BinarySensorEntity):
         self._zone = zone_id
         self._attr_unique_id = f"{device.id}_{zone_id or 'room'}"
         self._attr_device_class = BinarySensorDeviceClass.OCCUPANCY
-        self._attr_device_info = DeviceInfo(identifiers=device.identifiers, connections=device.connections)
+        radar = device.name_by_user or device.name or "Radar"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, f"presence_{device.id}")}, name=f"{radar} smart presence",
+                                            manufacturer="Athom Hub", model="Smart presence", suggested_area=None)
 
     @property
     def _settings(self) -> dict:

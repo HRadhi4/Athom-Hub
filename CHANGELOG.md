@@ -2,6 +2,9 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.7.1 — 2026-11-19
+- Smart presence sensors now sit on their own device, “… smart presence”, instead of an unnamed copy of the radar.
+
 ## 0.7.0 — 2026-11-19
 - **Smart presence for Athom radar sensors.** Open the sensor in Athom Hub and turn on Smart presence:
   - **Room shape and range:** draw the room's walls and set how far it looks. People behind a wall or in the next room are not counted.
