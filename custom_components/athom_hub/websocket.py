@@ -11,10 +11,10 @@ from homeassistant.components import websocket_api
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
 
-from . import codes, icons, roles
+from . import backup, codes, icons, roles
 from .const import DOMAIN, SIGNAL_LOG, LEARN_SECONDS, LEARN_SETTLE_SECONDS, REMOTE_KINDS, VERSION
 from .hub import Hub, HubError
-from .store import new_id
+from .store import clean_name
 
 
 def _hub(hass: HomeAssistant) -> Hub:
@@ -132,15 +132,16 @@ async def ws_test(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[st
     return {}
 
 
-@_command({vol.Required("type"): "athom_hub/broadlink"})
+@_command({vol.Required("type"): "athom_hub/broadlink", vol.Required("text"): str})
 async def ws_broadlink(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
-    return {"remotes": await hub.async_broadlink()}
+    """Read Broadlink codes the user pasted or picked from a file (nothing is read from other integrations)."""
+    return {"remotes": await hub.async_broadlink(msg["text"])}
 
 
-@_command({vol.Required("type"): "athom_hub/broadlink_copy", vol.Required("source"): str, vol.Required("device"): str,
+@_command({vol.Required("type"): "athom_hub/broadlink_copy", vol.Required("text"): str, vol.Required("index"): int,
            vol.Optional("name"): str, vol.Optional("kind"): str})
 async def ws_broadlink_copy(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict[str, Any]:
-    return await hub.async_broadlink_copy(msg["source"], msg["device"], msg.get("name"), msg.get("kind"))
+    return await hub.async_broadlink_copy(msg["text"], msg["index"], msg.get("name"), msg.get("kind"))
 
 
 @_command({vol.Required("type"): "athom_hub/backup"})
@@ -153,21 +154,15 @@ async def ws_restore(hass: HomeAssistant, hub: Hub, msg: dict[str, Any]) -> dict
     """Add the remotes of a backup file (remotes already here are replaced by id, others are kept)."""
     added = 0
     for item in msg["remotes"]:
-        if not isinstance(item, dict) or not isinstance(item.get("buttons"), list):
+        clean = backup.clean_remote(item, codes.tidy)
+        if clean is None:
             continue
-        remote = hub.store.upsert_remote({k: item.get(k) for k in ("id", "name", "kind", "emitter_ir", "emitter_rf", "temp_sensor")})
-        if isinstance(item.get("table"), dict) and item["table"].get("codes"):
-            remote["table"] = item["table"]
+        remote = hub.store.upsert_remote({k: clean[k] for k in ("id", "name", "kind", "emitter_ir", "emitter_rf", "temp_sensor")})
+        if "table" in clean:
+            remote["table"] = clean["table"]
         remote["buttons"] = []
-        for b in item["buttons"]:
-            timings = [int(v) for v in (b.get("timings") or []) if isinstance(v, (int, float))]
-            if len(timings) < 4:
-                continue
-            kind = b.get("kind") if b.get("kind") in ("ir", "rf") else "ir"
-            remote["buttons"].append({"id": str(b.get("id") or "")[:10] or new_id(),
-                                      "name": hub.store.unique_button_name(remote, str(b.get("name") or "Button")[:60]),
-                                      "kind": kind, "timings": codes.tidy(timings), "carrier": b.get("carrier"),
-                                      "frequency": b.get("frequency"), "sends": b.get("sends"), "source": b.get("source") or "backup"})
+        for b in clean["buttons"]:
+            remote["buttons"].append({**b, "name": hub.store.unique_button_name(remote, clean_name(b["name"], "Button"))})
         added += 1
     await hub.async_changed()
     return {"remotes": added}

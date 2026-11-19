@@ -10,6 +10,9 @@ This file has no Home Assistant imports on purpose: it is tested on its own.
 
 from __future__ import annotations
 
+import json
+import re
+
 import base64
 import binascii
 from statistics import median
@@ -357,3 +360,57 @@ def read_setting(captures: list[list[int]], candidates: dict, off_key=("off",), 
             elif d_off <= most and (best_d is None or d_off < best_d):
                 return off_key
     return best if best_d is not None and best_d <= most else None
+
+
+MAX_PASTE = 2_000_000
+_LINE = re.compile(r"^\s*(?:\"?([^:=,\"]{1,60}?)\"?\s*[:=,]\s*)?\"?((?:b64:)?[A-Za-z0-9+/=_-]{16,})\"?,?\s*$")
+
+
+def parse_broadlink(text: str) -> list[tuple[str, dict[str, object]]]:
+    """Broadlink codes as people have them, as a list of (remote name, {button: code or [codes]}).
+
+    Accepts a JSON export ({"data": {remote: {button: code}}}, {remote: {button: code}} or {button: code})
+    or plain lines like "power: JgBQAAAB..." (a line with just a code becomes Button 1, Button 2, ...).
+    """
+    text = (text or "").strip()
+    if not text:
+        return []
+    if len(text) > MAX_PASTE:
+        raise CodeError("That is too much text. Paste one remote at a time.")
+    if text[0] in "{[":
+        try:
+            data = json.loads(text)
+        except ValueError as err:
+            raise CodeError("That looks like a file but could not be read.") from err
+        if isinstance(data, dict) and isinstance(data.get("data"), dict):
+            data = data["data"]
+        if not isinstance(data, dict):
+            raise CodeError("No Broadlink codes were found in that file.")
+        if data and all(isinstance(v, dict) for v in data.values()):
+            return [(str(k)[:60], {str(b)[:60]: c for b, c in v.items() if isinstance(c, (str, list))}) for k, v in data.items() if v]
+        commands = {str(k)[:60]: v for k, v in data.items() if isinstance(v, (str, list))}
+        return [("Pasted remote", commands)] if commands else []
+    commands: dict[str, object] = {}
+    n = 0
+    for line in text.splitlines():
+        m = _LINE.match(line)
+        if not m:
+            continue
+        n += 1
+        label, code = (m.group(1) or "").strip(), m.group(2)
+        if label.lower() == "b64":  # a bare "b64:..." line has no name
+            label, code = "", f"b64:{code}"
+        label = label or f"Button {n}"
+        commands[label if label not in commands else f"{label} {n}"] = code
+    return [("Pasted remote", commands)] if commands else []
+
+
+def each_code(commands: dict[str, object]):
+    """Every (button name, code text) of one remote; a button with several codes gives name 1, name 2, ..."""
+    for name, value in sorted(commands.items()):
+        values = value if isinstance(value, list) else [value]
+        values = [v for v in values if isinstance(v, str)]
+        for n, text in enumerate(values):
+            yield (name if len(values) == 1 else f"{name} {n + 1}"), text
+
+

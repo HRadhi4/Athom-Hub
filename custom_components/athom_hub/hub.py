@@ -677,76 +677,54 @@ class Hub:
 
     # ------------------------------------------------------------------ Broadlink
 
-    async def async_broadlink(self) -> list[dict[str, Any]]:
-        """Every remote a Broadlink has learned through Home Assistant, decoded."""
-        names = {}
-        for entry in self.hass.config_entries.async_entries("broadlink"):
-            if entry.unique_id:
-                names[entry.unique_id.lower()] = entry.title
-        raw = await self.hass.async_add_executor_job(self._read_broadlink_files)
+    async def async_broadlink(self, text: str) -> list[dict[str, Any]]:
+        """Broadlink codes you pasted or picked from a file, decoded and grouped by remote."""
         out = []
-        for key, devices in raw.items():
-            for device, commands in sorted(devices.items()):
-                buttons = []
-                for name, value in sorted(commands.items()):
-                    values = value if isinstance(value, list) else [value]
-                    for n, text in enumerate(values):
-                        label = name if len(values) == 1 else f"{name} {n + 1}"
-                        try:
-                            code = codes.broadlink_decode(text)
-                            buttons.append({"name": label, "kind": code["kind"], "ok": True, **codes.describe(code["timings"])})
-                        except codes.CodeError as err:
-                            buttons.append({"name": label, "kind": "", "ok": False, "why": str(err)})
-                out.append({"source": key, "source_name": names.get(key, "Broadlink"), "device": device, "buttons": buttons,
-                            "kinds": sorted({b["kind"] for b in buttons if b["ok"]})})
+        for device, commands in _parse(text):
+            buttons = []
+            for label, value in codes.each_code(commands):
+                try:
+                    code = codes.broadlink_decode(value)
+                    buttons.append({"name": label, "kind": code["kind"], "ok": True, **codes.describe(code["timings"])})
+                except codes.CodeError as err:
+                    buttons.append({"name": label, "kind": "", "ok": False, "why": str(err)})
+            out.append({"device": device, "buttons": buttons, "kinds": sorted({b["kind"] for b in buttons if b["ok"]})})
         return out
 
-    def _read_broadlink_files(self) -> dict[str, dict[str, dict[str, Any]]]:
-        out: dict[str, dict[str, dict[str, Any]]] = {}
-        folder = Path(self.hass.config.path(".storage"))
-        for path in sorted(folder.glob("broadlink_remote_*_codes")):
-            try:
-                data = json.loads(path.read_text(encoding="utf-8")).get("data") or {}
-            except (OSError, ValueError) as err:
-                _LOGGER.warning("Could not read %s: %s", path.name, err)
-                continue
-            key = path.name[len("broadlink_remote_"):-len("_codes")].lower()
-            devices = {d: c for d, c in data.items() if isinstance(c, dict) and c}
-            if devices:
-                out[key] = devices
-        return out
-
-    async def async_broadlink_copy(self, source: str, device: str, name: str | None, kind: str | None) -> dict[str, Any]:
-        """Copy one Broadlink remote into a new Athom Hub remote."""
-        raw = await self.hass.async_add_executor_job(self._read_broadlink_files)
-        commands = (raw.get(source) or {}).get(device)
-        if not commands:
-            raise HubError("That Broadlink remote was not found. Was it learned in Home Assistant?")
+    async def async_broadlink_copy(self, text: str, index: int, name: str | None, kind: str | None) -> dict[str, Any]:
+        """Turn one remote of the pasted Broadlink codes into a new Athom Hub remote."""
+        found = _parse(text)
+        if not 0 <= index < len(found):
+            raise HubError("That remote is not in the pasted codes any more. Paste them again.")
+        device, commands = found[index]
         remote = self.store.upsert_remote({"name": name or device.replace("_", " ").title(), "kind": kind or guess_kind(device), **{f"emitter_{k}": v for k, v in self.default_emitters().items()}})
         copied, skipped = 0, []
-        for cmd, value in sorted(commands.items()):
-            values = value if isinstance(value, list) else [value]
-            for n, text in enumerate(values):
-                label = cmd.replace("_", " ").strip().capitalize() or "Button"
-                if len(values) > 1:
-                    label = f"{label} {n + 1}"
-                try:
-                    code = codes.broadlink_decode(text)
-                except codes.CodeError:
-                    skipped.append(label)
-                    continue
-                sends = code["repeat"] + 1
-                if code["kind"] == codes.KIND_RF:
-                    sends = max(sends, 4)
-                remote["buttons"].append({"id": new_id(), "name": self.store.unique_button_name(remote, clean_name(label, "Button")),
-                                          "kind": code["kind"], "timings": code["timings"], "carrier": None,
-                                          "frequency": code["frequency"], "sends": min(sends, 12), "source": "broadlink"})
-                copied += 1
+        for label, value in codes.each_code(commands):
+            label = label.replace("_", " ").strip().capitalize() or "Button"
+            try:
+                code = codes.broadlink_decode(value)
+            except codes.CodeError:
+                skipped.append(label)
+                continue
+            sends = code["repeat"] + 1
+            if code["kind"] == codes.KIND_RF:
+                sends = max(sends, 4)
+            remote["buttons"].append({"id": new_id(), "name": self.store.unique_button_name(remote, clean_name(label, "Button")),
+                                      "kind": code["kind"], "timings": code["timings"], "carrier": None,
+                                      "frequency": code["frequency"], "sends": min(sends, 12), "source": "broadlink"})
+            copied += 1
         if not copied:
             self.store.remotes.pop(remote["id"], None)
-            raise HubError("None of that remote's buttons could be read.")
+            raise HubError("None of those codes could be read as Broadlink codes.")
         await self.async_changed()
         return {"remote_id": remote["id"], "copied": copied, "skipped": skipped}
+
+
+def _parse(text: str) -> list[tuple[str, dict[str, Any]]]:
+    try:
+        return codes.parse_broadlink(text)
+    except codes.CodeError as err:
+        raise HubError(str(err)) from err
 
 
 def guess_kind(name: str) -> str:

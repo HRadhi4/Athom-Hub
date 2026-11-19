@@ -1,7 +1,7 @@
 <p align="center"><img src="https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/custom_components/athom_hub/brand/logo@2x.png" alt="Athom Hub" width="420"></p>
 
 <p align="center"><b>Use your Athom RF/IR Remote and other Athom devices with Home Assistant. No coding, no re-flashing.</b><br>
-Learn remotes · copy them from a Broadlink · turn them into real TVs, ACs, curtains and fans</p>
+Learn remotes · bring in Broadlink codes · turn them into real TVs, ACs, curtains and fans</p>
 
 <p align="center">
 <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS"></a>
@@ -21,7 +21,7 @@ Learn remotes · copy them from a Broadlink · turn them into real TVs, ACs, cur
 
 - **A friendly page in your sidebar.** Big picture buttons, plain words, works on a phone. Made so anyone at home can use it.
 - **Learn any remote**, one button at a time: TV, air conditioner, fan, curtains, sockets. Infrared and 433 MHz radio.
-- **Copy from a Broadlink** in one tap, if a Broadlink already learned your remotes in Home Assistant.
+- **Bring in Broadlink codes**: paste the codes a Broadlink learned, or choose a saved file of them, and copy each remote in one tap.
 - **Real devices, not just buttons.** An AC remote becomes a thermostat, a curtain remote a curtain, a TV remote a media player. They work with normal cards, automations and voice.
 - **Air conditioners done right.** Full code sets from SmartIR's library (395 files, 110 brands), and Home Assistant follows when someone uses the **real** remote.
 - **Presence sensor made easy.** A live room map where you draw zones with your finger, and every setting in plain words.
@@ -29,7 +29,7 @@ Learn remotes · copy them from a Broadlink · turn them into real TVs, ACs, cur
 
 | | | |
 |:-:|:-:|:-:|
-| ![Learn a button](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/learn-button.gif)<br>**Learn a button** | ![Copy from a Broadlink](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/copy-broadlink.gif)<br>**Copy from a Broadlink** | ![Press buttons](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/press-buttons.gif)<br>**Press with a tick** |
+| ![Learn a button](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/learn-button.gif)<br>**Learn a button** | ![Bring in Broadlink codes](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/copy-broadlink.gif)<br>**Copy from a Broadlink** | ![Press buttons](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/gifs/press-buttons.gif)<br>**Press with a tick** |
 
 ## Install
 
@@ -48,7 +48,7 @@ You need Home Assistant **2026.11** or newer, and your Athom device added to Hom
 Short, written, with pictures:
 
 1. [Install Athom Hub](docs/tutorials/01-install.md) · 5 min
-2. [Copy your Broadlink remotes](docs/tutorials/02-copy-broadlink.md) · 1 min per remote
+2. [Bring in your Broadlink codes](docs/tutorials/02-copy-broadlink.md) · 1 min per remote
 3. [Learn a button from any remote](docs/tutorials/03-learn-a-button.md) · 30 s per button
 4. [Use your remotes in Home Assistant](docs/tutorials/04-use-in-home-assistant.md)
 5. [Air conditioners: the full code set](docs/tutorials/05-air-conditioners.md)
@@ -91,7 +91,7 @@ If it does not react, your AC speaks another language. Learn the buttons you nee
 
 ## Good to know
 
-- **Remotes learned only in the Broadlink phone app** are not in Home Assistant, so they cannot be copied. Learn those buttons again with Athom Hub.
+- **Broadlink codes** are pasted or chosen from a file you saved; Athom Hub never reads other integrations' storage. Codes that only live in the Broadlink phone app can't be exported, so learn those buttons again with Athom Hub.
 - **Rolling-code remotes** (garage doors, some gates and shutters) change their code every press. No device can copy them.
 - **Radio replay through the Athom** works for simple 433 MHz remotes (curtains, sockets, doorbells). Test each button once after copying.
 - The Athom's radio receiver hears background radio noise all the time. That is normal; Athom Hub only keeps a radio code after hearing the same signal at least three times.

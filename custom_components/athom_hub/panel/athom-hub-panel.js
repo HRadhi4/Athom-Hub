@@ -232,7 +232,7 @@ class AthomHubPanel extends HTMLElement {
         </div>
         <div class="tabs">
           ${[["remotes", "Remotes", "mdi:remote"], ["devices", "Devices", "mdi:devices"], ["broadlink", "Broadlink", "mdi:content-copy"], ["log", "Activity", "mdi:history"]]
-            .map(([k, t, ic]) => `<button class="tab ${this.s.tab === k ? "on" : ""}" data-a="tab" data-k="${k}" aria-label="${t}"><ha-icon icon="${ic}"></ha-icon><span>${t}</span></button>`).join("")}
+            .map(([k, t, ic]) => `<button class="tab ${this.s.tab === k ? "on" : ""}" data-a="tab" data-k="${esc(k)}" aria-label="${esc(t)}"><ha-icon icon="${esc(ic)}"></ha-icon><span>${t}</span></button>`).join("")}
         </div>
         ${body}
       </div>
@@ -246,8 +246,8 @@ class AthomHubPanel extends HTMLElement {
   vRemotes(remotes) {
     const tiles = remotes.map((r) => {
       const [kname, icon] = KINDS[r.kind] || KINDS.other;
-      return `<button class="tile" data-a="open" data-id="${r.id}">
-        <span class="ic"><ha-icon icon="${icon}"></ha-icon></span>
+      return `<button class="tile" data-a="open" data-id="${esc(r.id)}">
+        <span class="ic"><ha-icon icon="${esc(icon)}"></ha-icon></span>
         <span><div class="nm">${esc(r.name)}</div><div class="sb">${r.buttons.length} ${r.buttons.length === 1 ? "button" : "buttons"} · ${esc(kname)}</div></span>
       </button>`;
     }).join("");
@@ -278,12 +278,12 @@ class AthomHubPanel extends HTMLElement {
           <div class="row" style="flex-wrap:nowrap"><ha-icon icon="${esc(b.icon)}" style="color:${esc(b.colour || "var(--acc)")};flex:none"></ha-icon><div class="t" style="font-weight:600;overflow-wrap:anywhere;min-width:0">${esc(b.name)}</div></div>
           <div class="note" style="margin:2px 0 8px">${b.role ? esc((this.s.data.role_names || {})[b.role]) + " · " : ""}${KIND_WORD[b.kind] || ""} · ${b.pulses} pulses${b.source === "broadlink" ? " · from Broadlink" : ""}</div>
           <div class="row">
-            <button class="pill" data-a="renameBtn" data-id="${b.id}">Name and picture</button>
-            <button class="pill" data-a="relearn" data-id="${b.id}">Learn again</button>
-            ${i ? `<button class="iconbtn" data-a="up" data-id="${b.id}" aria-label="Move up"><ha-icon icon="mdi:arrow-up"></ha-icon></button>` : ""}
-            <button class="iconbtn" data-a="delBtn" data-id="${b.id}" aria-label="Delete" style="color:var(--bad)"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
+            <button class="pill" data-a="renameBtn" data-id="${esc(b.id)}">Name and picture</button>
+            <button class="pill" data-a="relearn" data-id="${esc(b.id)}">Learn again</button>
+            ${i ? `<button class="iconbtn" data-a="up" data-id="${esc(b.id)}" aria-label="Move up"><ha-icon icon="mdi:arrow-up"></ha-icon></button>` : ""}
+            <button class="iconbtn" data-a="delBtn" data-id="${esc(b.id)}" aria-label="Delete" style="color:var(--bad)"><ha-icon icon="mdi:delete-outline"></ha-icon></button>
           </div></div>`
-      : `<button class="rb" data-a="press" data-id="${b.id}" ${b.colour ? `style="--bc:${esc(b.colour)}"` : ""}><span class="badge"></span><ha-icon icon="${esc(b.icon)}"></ha-icon><span class="lb">${esc(b.name)}</span></button>`).join("");
+      : `<button class="rb" data-a="press" data-id="${esc(b.id)}" ${b.colour ? `style="--bc:${esc(b.colour)}"` : ""}><span class="badge"></span><ha-icon icon="${esc(b.icon)}"></ha-icon><span class="lb">${esc(b.name)}</span></button>`).join("");
     const kinds = [...new Set(r.buttons.map((b) => b.kind))];
     const from = (kinds.length ? kinds : ["ir"]).map((k) => `${KIND_WORD[k]}: ${esc(this.portName(r[`emitter_${k}`]))}`).join(" · ");
     return `
@@ -296,14 +296,14 @@ class AthomHubPanel extends HTMLElement {
       </div>
       <div class="card" style="margin-bottom:12px">
         <div class="item" style="cursor:default">
-          <span class="tile" style="min-height:0;padding:0;border:0;background:none;cursor:default"><span class="ic"><ha-icon icon="${icon}"></ha-icon></span></span>
+          <span class="tile" style="min-height:0;padding:0;border:0;background:none;cursor:default"><span class="ic"><ha-icon icon="${esc(icon)}"></ha-icon></span></span>
           <div class="grow"><h2>${esc(r.name)}</h2><div class="s">${esc(kname)} · sends from ${from}</div></div>
         </div>
         ${r.table ? `<p class="note" style="margin-bottom:0">Full air conditioner code set: ${esc(r.table.maker)} ${esc((r.table.models || []).join(", "))} · ${r.table.codes} codes (${esc(r.table.source || "")}). Every change sends the whole setting, and presses of the real remote near an Athom are followed.</p>` : ""}
         ${this.vMainEntity(r)}
       </div>
       ${r.buttons.length
-        ? `<div class="${edit ? "list" : "btns"}">${buttons}</div>`
+        ? `<div class="${esc(edit ? "list" : "btns")}">${buttons}</div>`
         : `<div class="card empty"><h2>No buttons yet</h2><p>Tap “Add a button”, then press the button on your real remote, pointed at the Athom.</p></div>`}
       <div class="row" style="margin-top:14px"><button class="pill main" data-a="learn"><ha-icon icon="mdi:plus"></ha-icon>Add a button</button></div>
       <p class="note">Each button is also a normal Home Assistant button, so you can use it on dashboards and in automations.</p>`;
@@ -325,10 +325,10 @@ class AthomHubPanel extends HTMLElement {
       const open = this.s.open[x.id];
       const sum = [x.area, x.online ? "Online" : "Offline", x.ports.length ? `${x.ports.length} remote ${x.ports.length === 1 ? "part" : "parts"}` : ""].filter(Boolean).join(" · ");
       return `<div class="card">
-        <div class="item" data-a="toggle" data-id="${x.id}">
+        <div class="item" data-a="toggle" data-id="${esc(x.id)}">
           <span class="dot ${x.online ? "ok" : "bad"}" style="margin-top:7px"></span>
           <div class="grow"><div class="t">${esc(x.name)}</div><div class="s">${esc(sum)}</div></div>
-          <ha-icon class="chev" icon="${open ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
+          <ha-icon class="chev" icon="${esc(open ? "mdi:chevron-up" : "mdi:chevron-down")}"></ha-icon>
         </div>
         ${open ? `<div class="details">
           <div class="kv">
@@ -340,7 +340,7 @@ class AthomHubPanel extends HTMLElement {
           </div>
           ${x.more_facts ? `<p class="note">And ${x.more_facts} more on its device page in Settings.</p>` : ""}
           ${x.ports.length ? `<div class="chips">${x.ports.map((p) => `<span class="chip">${p.role === "send" ? "Sends" : "Hears"} ${KIND_WORD[p.kind]}</span>`).join("")}</div>` : ""}
-          <div class="row" style="margin-top:12px"><button class="pill main" data-a="devOpen" data-id="${x.id}"><ha-icon icon="mdi:tune-variant"></ha-icon>Settings and controls</button></div>
+          <div class="row" style="margin-top:12px"><button class="pill main" data-a="devOpen" data-id="${esc(x.id)}"><ha-icon icon="mdi:tune-variant"></ha-icon>Settings and controls</button></div>
         </div>` : ""}
       </div>`;
     }).join("");
@@ -362,48 +362,52 @@ class AthomHubPanel extends HTMLElement {
       <div class="item" data-a="toggle" data-id="__test">
         <ha-icon icon="mdi:shield-check-outline" style="color:var(--acc);margin-top:2px"></ha-icon>
         <div class="grow"><div class="t">Check that it works</div><div class="s">${res ? (res.heard ? "Last check: heard it ✓" : "Last check: not heard") : "A safe test with a made-up code. Your TV, AC and curtains will not react."}</div></div>
-        <ha-icon class="chev" icon="${this.s.open.__test ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
+        <ha-icon class="chev" icon="${esc(this.s.open.__test ? "mdi:chevron-up" : "mdi:chevron-down")}"></ha-icon>
       </div>
       ${this.s.open.__test ? `<div class="details">
         <label>What to test</label>
-        <div class="choice">${kinds.map((k) => `<button class="pill ${k === kind ? "on" : ""}" data-a="testKind" data-k="${k}">${KIND_WORD[k]}</button>`).join("")}</div>
+        <div class="choice">${kinds.map((k) => `<button class="pill ${k === kind ? "on" : ""}" data-a="testKind" data-k="${esc(k)}">${KIND_WORD[k]}</button>`).join("")}</div>
         <label for="tfrom">Send from</label>
         <select id="tfrom">${senders.map(([id, n]) => `<option value="${esc(id)}" ${id === sender ? "selected" : ""}>${esc(n)}</option>`).join("")}</select>
         <label for="tto">Listen with</label>
         <select id="tto">${receivers.map((p) => `<option value="${esc(p.entity_id)}">${esc(p.device_name)}</option>`).join("")}</select>
         <p class="note">Sending from a Broadlink also checks that codes copied from it come out right.</p>
         <div class="row"><button class="pill main" data-a="runTest" ${t.busy ? "disabled" : ""}>${t.busy ? "Testing…" : "Run the test"}</button></div>
-        ${res ? `<p class="${res.heard ? "ok" : "bad"}" style="font-weight:500">${res.heard ? "It worked: the receiver heard the test code." : `The receiver did not hear the test code (it heard ${res.captures} other ${res.captures === 1 ? "signal" : "signals"}). Put the two devices closer together and try again.`}</p>` : ""}
+        ${res ? `<p class="${esc(res.heard ? "ok" : "bad")}" style="font-weight:500">${res.heard ? "It worked: the receiver heard the test code." : `The receiver did not hear the test code (it heard ${res.captures} other ${res.captures === 1 ? "signal" : "signals"}). Put the two devices closer together and try again.`}</p>` : ""}
       </div>` : ""}
     </div>`;
   }
 
   vBroadlink() {
     const bl = this.s.bl;
-    if (!bl) { this.loadBroadlink(); return `<div class="card empty"><p>Looking for Broadlink remotes…</p></div>`; }
-    const items = bl.map((r, i) => {
+    const items = (bl || []).map((r, i) => {
       const key = `bl${i}`;
       const open = this.s.open[key];
       const good = r.buttons.filter((b) => b.ok).length;
-      const sum = `${esc(r.source_name)} · ${good} ${good === 1 ? "button" : "buttons"}${r.kinds.length ? " · " + r.kinds.map((k) => KIND_WORD[k]).join(" and ") : ""}`;
+      const sum = `${good} ${good === 1 ? "button" : "buttons"}${r.kinds.length ? " · " + r.kinds.map((k) => KIND_WORD[k]).join(" and ") : ""}`;
       return `<div class="card">
-        <div class="item" data-a="toggle" data-id="${key}">
-          <ha-icon icon="${(KINDS[guessKind(r.device)] || KINDS.other)[1]}" style="color:var(--acc);margin-top:2px"></ha-icon>
-          <div class="grow"><div class="t">${esc(niceName(r.device))}</div><div class="s">${sum}</div></div>
+        <div class="item" data-a="toggle" data-id="${esc(key)}">
+          <ha-icon icon="${esc((KINDS[guessKind(r.device)] || KINDS.other)[1])}" style="color:var(--acc);margin-top:2px"></ha-icon>
+          <div class="grow"><div class="t">${esc(niceName(r.device))}</div><div class="s">${esc(sum)}</div></div>
           <ha-icon class="chev" icon="${open ? "mdi:chevron-up" : "mdi:chevron-down"}"></ha-icon>
         </div>
         ${open ? `<div class="details">
           <div class="chips">${r.buttons.map((b) => `<span class="chip" ${b.ok ? "" : 'style="color:var(--bad)"'}>${esc(b.name)}${b.ok ? "" : " (cannot be read)"}</span>`).join("")}</div>
-          <div class="row" style="margin-top:12px"><button class="pill main" data-a="copy" data-i="${i}" ${good ? "" : "disabled"}><ha-icon icon="mdi:content-copy"></ha-icon>Copy to Athom Hub</button></div>
+          <div class="row" style="margin-top:12px"><button class="pill main" data-a="copy" data-i="${esc(i)}" ${good ? "" : "disabled"}><ha-icon icon="mdi:content-copy"></ha-icon>Copy to Athom Hub</button></div>
         </div>` : ""}
       </div>`;
     }).join("");
     return `${this.vAcSets()}
-      <div class="sec">Remotes learned by a Broadlink</div>
-      <p class="note" style="margin-top:0">Remotes a Broadlink learned through Home Assistant. Copy one, then press each button once to check it.</p>
-      <div class="list">${items || `<div class="card empty"><h2>Nothing to copy</h2><p>No remotes learned by a Broadlink were found in Home Assistant.</p></div>`}</div>
+      <div class="sec">Bring in codes from a Broadlink</div>
+      <p class="note" style="margin-top:0">Paste the codes a Broadlink learned, one per line (for example <b>power: JgBQAAAB…</b>), or choose a file of codes you saved. Then copy each remote and press its buttons once to check them.</p>
+      <div class="card">
+        <textarea id="blText" rows="6" placeholder="power: JgBQAAABKZQTEh…&#10;volume up: JgBQAAABKZQ…" style="width:100%;box-sizing:border-box;font:13px ui-monospace,monospace;border-radius:12px;padding:10px;background:var(--bg2,transparent);color:inherit;border:1px solid var(--line,#8884)">${esc(this.s.blText || "")}</textarea>
+        <div class="row" style="margin-top:10px"><button class="pill main" data-a="blRead"><ha-icon icon="mdi:text-search"></ha-icon>Read the codes</button><button class="pill" data-a="blFile"><ha-icon icon="mdi:file-upload-outline"></ha-icon>Choose a file</button></div>
+        <input type="file" id="blFile" accept=".json,.txt,application/json,text/plain" hidden>
+      </div>
+      ${bl ? `<div class="list" style="margin-top:12px">${items || `<div class="card empty"><h2>No codes found</h2><p>Nothing in that text looks like a Broadlink code. Codes are long and usually start with <b>Jg</b>.</p></div>`}</div>` : ""}
       <div class="card" style="margin-top:14px"><h3>Good to know</h3>
-        <p>Remotes learned only in the Broadlink phone app are not in Home Assistant, so they cannot be copied. Learn those buttons again here.</p>
+        <p>Athom Hub only reads what you paste or choose here. It never looks inside other integrations.</p>
         <p>Garage doors and remotes with “rolling codes” change their code every press. No device can copy them.</p>
         <p>The Broadlink keeps working. Nothing is removed from it.</p></div>`;
   }
@@ -423,7 +427,7 @@ class AthomHubPanel extends HTMLElement {
       return `<h2>${r ? "Remote settings" : "New remote"}</h2>
         <label for="rname">Name</label><input id="rname" value="${esc(sh.name ?? r?.name ?? "")}" placeholder="For example: Living room TV" maxlength="60">
         <label>What does it control?</label>
-        <div class="choice">${Object.entries(KINDS).map(([k, [n, ic]]) => `<button class="pill ${k === kind ? "on" : ""}" data-a="pickKind" data-k="${k}"><ha-icon icon="${ic}"></ha-icon>${n}</button>`).join("")}</div>
+        <div class="choice">${Object.entries(KINDS).map(([k, [n, ic]]) => `<button class="pill ${k === kind ? "on" : ""}" data-a="pickKind" data-k="${esc(k)}"><ha-icon icon="${esc(ic)}"></ha-icon>${n}</button>`).join("")}</div>
         ${kind === "ac" ? `<label for="tsens">Room temperature from</label><select id="tsens"><option value="">No sensor</option>${Object.values(this._hass.states).filter((x) => x.attributes.device_class === "temperature" && x.entity_id.startsWith("sensor.")).sort((a, b) => (a.attributes.friendly_name || "").localeCompare(b.attributes.friendly_name || "")).map((x) => `<option value="${esc(x.entity_id)}" ${r?.temp_sensor === x.entity_id ? "selected" : ""}>${esc(x.attributes.friendly_name || x.entity_id)}</option>`).join("")}</select><p class="note">Shown on thermostat cards as the room temperature.</p>` : ""}
         <label>Infrared buttons send from</label>${sel("ir")}
         <label>Radio buttons send from</label>${sel("rf")}
@@ -442,20 +446,20 @@ class AthomHubPanel extends HTMLElement {
       const roleSel = kr.length ? `<label for="brole">What this button does</label>
         <select id="brole">
           <option value="" ${!sh.role ? "selected" : ""}>Let Athom Hub guess${btn?.role && !btn.role_set ? ` (now: ${esc(rn[btn.role])})` : ""}</option>
-          ${kr.map((k) => `<option value="${k}" ${sh.role === k ? "selected" : ""}>${esc(rn[k])}</option>`).join("")}
+          ${kr.map((k) => `<option value="${esc(k)}" ${sh.role === k ? "selected" : ""}>${esc(rn[k])}</option>`).join("")}
           <option value="none" ${sh.role === "none" ? "selected" : ""}>Nothing special (a plain button)</option>
         </select>
         <p class="note">This is how the ${esc(KINDS[rem.kind][0].toLowerCase())} control in Home Assistant uses this button.</p>` : "";
       return `<h2>Name and picture</h2><label for="bname">Name</label><input id="bname" value="${esc(sh.name)}" maxlength="60">${roleSel}
         <label>Picture</label>
         <div class="pick">
-          <button class="${sh.icon ? "" : "on"}" data-a="pickIcon" data-k="">Auto</button>
-          ${choices.map((ic) => `<button class="${sh.icon === ic ? "on" : ""}" data-a="pickIcon" data-k="${ic}" aria-label="${ic.slice(4)}"><ha-icon icon="${ic}"></ha-icon></button>`).join("")}
+          <button class="${esc(sh.icon ? "" : "on")}" data-a="pickIcon" data-k="">Auto</button>
+          ${choices.map((ic) => `<button class="${esc(sh.icon === ic ? "on" : "")}" data-a="pickIcon" data-k="${esc(ic)}" aria-label="${esc(ic.slice(4))}"><ha-icon icon="${esc(ic)}"></ha-icon></button>`).join("")}
         </div>
         <label>Colour</label>
         <div class="choice">
           <button class="sw ${!sh.colour ? "on" : ""}" style="background:var(--card2);color:var(--tx)" data-a="pickColour" data-k="">Auto</button>
-          ${Object.entries(cols).map(([k, c]) => `<button class="sw ${sh.colour === k ? "on" : ""}" style="background:${c}" data-a="pickColour" data-k="${k}" aria-label="${k}"></button>`).join("")}
+          ${Object.entries(cols).map(([k, c]) => `<button class="sw ${sh.colour === k ? "on" : ""}" style="background:${c}" data-a="pickColour" data-k="${esc(k)}" aria-label="${esc(k)}"></button>`).join("")}
           <button class="sw ${sh.colour === "none" ? "on" : ""}" style="background:var(--acc)" data-a="pickColour" data-k="none" aria-label="plain"></button>
         </div>
         <div class="row" style="margin-top:18px;justify-content:flex-end">${close}<button class="pill main" data-a="saveName">Save</button></div>`;
@@ -485,7 +489,7 @@ class AthomHubPanel extends HTMLElement {
     }
     if (sh.step === "listen") {
       return `<div class="center"><h2>Press the button now</h2>
-        <div class="pulse"><ha-icon icon="${sh.kind === "rf" ? "mdi:radio-tower" : "mdi:remote"}"></ha-icon></div>
+        <div class="pulse"><ha-icon icon="${esc(sh.kind === "rf" ? "mdi:radio-tower" : "mdi:remote")}"></ha-icon></div>
         <div class="big">${sh.left}</div>
         <p>${sh.kind === "rf" ? "Hold the remote close to the Athom and keep the button pressed for about two seconds." : "Point your remote at the Athom from about 30 cm and press the button once."}</p>
         ${sh.count ? `<p class="note">Hearing something… (${sh.count})</p>` : ""}
@@ -494,14 +498,14 @@ class AthomHubPanel extends HTMLElement {
     if (sh.step === "timeout") {
       return `<h2>Nothing clear was heard</h2>
         <p>${sh.kind === "rf" ? "Hold the remote right next to the Athom and keep the button pressed longer. If it still fails, this remote may use rolling codes, which cannot be copied." : "Come closer, point straight at the Athom, and press once. Bright sunlight can get in the way."}</p>
-        <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="pill" data-a="close">Cancel</button><button class="pill main" data-a="learnKind" data-k="${sh.kind}">Try again</button></div>`;
+        <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="pill" data-a="close">Cancel</button><button class="pill main" data-a="learnKind" data-k="${esc(sh.kind)}">Try again</button></div>`;
     }
     if (sh.step === "got") {
       const r = this.remote();
       return `<h2>Got it ✓</h2>
         <p>${KIND_WORD[sh.kind]} · ${sh.pulses} pulses. Try it on the real device before saving.</p>
         <div class="row"><button class="pill" data-a="testLearned" ${r && r[`emitter_${sh.kind}`] ? "" : "disabled"}><ha-icon icon="mdi:play"></ha-icon>Try it</button>
-          <button class="pill" data-a="learnKind" data-k="${sh.kind}">Learn again</button></div>
+          <button class="pill" data-a="learnKind" data-k="${esc(sh.kind)}">Learn again</button></div>
         ${r && !r[`emitter_${sh.kind}`] ? `<p class="note">Choose where ${KIND_WORD[sh.kind].toLowerCase()} buttons send from in the remote settings to try it.</p>` : ""}
         ${sh.buttonId ? "" : `<label for="lname">Name</label><input id="lname" value="${esc(sh.name || "")}" placeholder="For example: Power" maxlength="60">`}
         <div class="row" style="justify-content:flex-end;margin-top:18px"><button class="pill" data-a="close">Cancel</button><button class="pill main" data-a="saveLearned">Save button</button></div>`;
@@ -522,6 +526,10 @@ class AthomHubPanel extends HTMLElement {
     });
     const file = root.getElementById("restoreFile");
     if (file) file.addEventListener("change", () => this.restore(file.files[0]));
+    const blFile = root.getElementById("blFile");
+    if (blFile) blFile.addEventListener("change", () => this.readBroadlinkFile(blFile.files[0]));
+    const blText = root.getElementById("blText");
+    if (blText) blText.addEventListener("input", () => { this.s.blText = blText.value; });
     root.querySelectorAll("[data-ch]").forEach((el) => el.addEventListener("change", () => this.actDevice("change", el.dataset, el)));
     if (this.s.sheet?.type === "device") { this.wireMap(); this.wireSmartMap(); }
     const tf = root.getElementById("tfrom");
@@ -564,13 +572,13 @@ class AthomHubPanel extends HTMLElement {
         this.render(); return;
       case "confirmYes": { const f = s.sheet.then; s.sheet = null; this.render(); await f(); return; }
       case "press": {
-        const el = this.shadowRoot.querySelector(`[data-a="press"][data-id="${ds.id}"]`);
+        const el = this.shadowRoot.querySelector(`[data-a="press"][data-id="${esc(ds.id)}"]`);
         if (!el) return;
         el.classList.remove("ok", "fail");
         let good = true;
         try { await this.ws("press", { remote_id: s.remote, button_id: ds.id }); } catch (e) { good = false; this.toast(e.message || "It did not send.", true); }
         el.classList.add(good ? "ok" : "fail");
-        el.querySelector(".badge").innerHTML = `<ha-icon icon="${good ? "mdi:check" : "mdi:close"}"></ha-icon>`;
+        el.querySelector(".badge").innerHTML = `<ha-icon icon="${esc(good ? "mdi:check" : "mdi:close")}"></ha-icon>`;
         try { navigator.vibrate && navigator.vibrate(good ? 35 : [70, 50, 70]); } catch { /* not on this device */ }
         clearTimeout(el._t);
         el._t = setTimeout(() => { el.classList.remove("ok", "fail"); el.querySelector(".badge").innerHTML = ""; }, good ? 900 : 1600);
@@ -621,9 +629,15 @@ class AthomHubPanel extends HTMLElement {
         s.test.result = await this.run(() => this.ws("self_test", { emitter, receiver, kind })) || null;
         s.test.busy = false; this.render(); return;
       }
+      case "blRead": {
+        s.blText = this.val("blText") || "";
+        const r = await this.run(() => this.ws("broadlink", { text: s.blText }));
+        s.bl = r ? r.remotes : null; if (s.bl?.length === 1) s.open.bl0 = true; this.render(); return;
+      }
+      case "blFile": this.shadowRoot.getElementById("blFile").click(); return;
       case "copy": {
         const r = s.bl[+ds.i];
-        const res = await this.run(() => this.ws("broadlink_copy", { source: r.source, device: r.device, name: niceName(r.device), kind: guessKind(r.device) }),
+        const res = await this.run(() => this.ws("broadlink_copy", { text: s.blText, index: +ds.i, name: niceName(r.device === "Pasted remote" ? "New remote" : r.device), kind: guessKind(r.device) }),
           (x) => `Copied ${x.copied} ${x.copied === 1 ? "button" : "buttons"}${x.skipped.length ? ` (${x.skipped.length} could not be read)` : ""}`);
         if (res) { await this.load(); s.tab = "remotes"; s.remote = res.remote_id; this.render(); }
         return;
@@ -650,13 +664,12 @@ class AthomHubPanel extends HTMLElement {
     await this.load();
   }
 
-  async loadBroadlink() {
-    if (this._blLoading) return;
-    this._blLoading = true;
-    const r = await this.run(() => this.ws("broadlink"));
-    this.s.bl = r ? r.remotes : [];
-    this._blLoading = false;
-    this.render();
+  async readBroadlinkFile(file) {
+    if (!file) return;
+    if (file.size > 2_000_000) { this.toast("That file is too big. Choose a smaller one.", true); return; }
+    this.s.blText = await file.text();
+    const r = await this.run(() => this.ws("broadlink", { text: this.s.blText }));
+    this.s.bl = r ? r.remotes : null; this.render();
   }
 
   async startLearn(kind) {
@@ -714,12 +727,12 @@ class AthomHubPanel extends HTMLElement {
       const col = !e.ok ? "var(--bad)" : sent ? "var(--ok)" : e.known ? "var(--acc)" : "var(--tx2)";
       const icon = !e.ok ? "mdi:alert-circle-outline" : sent ? "mdi:arrow-up-bold-circle-outline" : "mdi:arrow-down-bold-circle-outline";
       const line = sent ? `${e.ok ? "Sent" : "Could not send"} from ${esc(e.via)}` : `Heard by ${esc(e.via)}${e.known ? "" : ` · ${e.pulses} pulses`}`;
-      return `<div class="logrow"><span class="ic2" style="color:${col}"><ha-icon icon="${icon}"></ha-icon></span>
+      return `<div class="logrow"><span class="ic2" style="color:${col}"><ha-icon icon="${esc(icon)}"></ha-icon></span>
         <div class="grow"><div class="t">${esc(e.what)}</div><div class="s">${line} · ${esc(KIND_WORD[e.kind] || "")}</div>${e.why ? `<div class="s bad">${esc(e.why)}</div>` : ""}</div>
         <span class="tm">${fmt(e.time)}</span></div>`;
     };
     return `<div class="filters">
-        ${[["all", "All"], ["sent", "Sent"], ["heard", "Heard"], ["bad", "Problems"]].map(([k, t]) => `<button class="pill ${f === k ? "on" : ""}" data-a="logFilter" data-k="${k}">${t}</button>`).join("")}
+        ${[["all", "All"], ["sent", "Sent"], ["heard", "Heard"], ["bad", "Problems"]].map(([k, t]) => `<button class="pill ${f === k ? "on" : ""}" data-a="logFilter" data-k="${esc(k)}">${t}</button>`).join("")}
       </div>
       <div class="card" style="padding:4px 16px">${rows.length ? rows.map(item).join("") : `<div class="empty"><p>Nothing yet. Press a button here or on a real remote near the Athom.</p></div>`}</div>
       <div class="row between" style="margin-top:10px"><p class="note">Newest first. Kept until Home Assistant restarts.</p><button class="pill" data-a="logClear">Clear</button></div>`;
@@ -847,7 +860,7 @@ Object.assign(AthomHubPanel.prototype, {
       ctl = `<select data-ch="select" data-id="${esc(id)}">${(st.attributes.options || []).map((o) => `<option value="${esc(o)}" ${o === st.state ? "selected" : ""}>${esc(words[o] || o)}</option>`).join("")}</select>`;
     } else if (dom === "number") {
       const a = st.attributes;
-      ctl = `<span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" data-ch="number" data-id="${esc(id)}" value="${esc(st.state)}" min="${a.min}" max="${a.max}" step="${a.step || 1}" style="min-width:90px;max-width:120px"><span class="note" style="margin:0">${esc(a.unit_of_measurement || "")}</span></span>`;
+      ctl = `<span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" data-ch="number" data-id="${esc(id)}" value="${esc(st.state)}" min="${esc(a.min)}" max="${esc(a.max)}" step="${esc(a.step || 1)}" style="min-width:90px;max-width:120px"><span class="note" style="margin:0">${esc(a.unit_of_measurement || "")}</span></span>`;
     } else if (dom === "text") ctl = `<input type="text" data-ch="text" data-id="${esc(id)}" value="${esc(st.state)}">`;
     else if (dom === "button") ctl = `<button class="pill ${f?.danger ? "danger" : ""}" data-a="ctlPress" data-id="${esc(id)}">${f?.danger ? "Do it…" : "Press"}</button>`;
     else if (dom === "cover") ctl = `<span class="row"><button class="pill" data-a="ctlCover" data-k="open" data-id="${esc(id)}">Open</button><button class="pill" data-a="ctlCover" data-k="close" data-id="${esc(id)}">Close</button></span>`;
@@ -867,7 +880,7 @@ Object.assign(AthomHubPanel.prototype, {
     return `<div class="sec">The sensor's own zones</div>
       <div class="card">
         <p style="margin-top:0">The sensor is at the top, looking down into the room. Dots are people it sees right now. ${type === "Disabled" ? "<b>Zones are off.</b> Choose what zones do below to use them." : ""}</p>
-        <div class="zchips">${[1, 2, 3].map((n) => { const e = this.zoneEmpty(sh.draft?.[n] || this.zoneOf(sh.id, n)); return `<button class="zchip ${n === z ? "on" : ""}" style="--zc:${ZONE_COLOURS[n - 1]}" data-a="zonePick" data-k="${n}"><span class="sw2"></span>Zone ${n}<br><small style="color:var(--tx2)">${e ? "not drawn" : `<span id="zc${n}">${counts[n - 1]}</span> inside`}</small></button>`; }).join("")}</div>
+        <div class="zchips">${[1, 2, 3].map((n) => { const e = this.zoneEmpty(sh.draft?.[n] || this.zoneOf(sh.id, n)); return `<button class="zchip ${n === z ? "on" : ""}" style="--zc:${ZONE_COLOURS[n - 1]}" data-a="zonePick" data-k="${esc(n)}"><span class="sw2"></span>Zone ${n}<br><small style="color:var(--tx2)">${e ? "not drawn" : `<span id="zc${n}">${counts[n - 1]}</span> inside`}</small></button>`; }).join("")}</div>
         ${this.vMap(sh)}
         <p class="note">Drag on the map to draw zone ${z}. Drag inside it to move it, or drag a corner to resize it.</p>
         <div class="row">
@@ -877,7 +890,7 @@ Object.assign(AthomHubPanel.prototype, {
         </div>
         <details ${sh.exact ? "open" : ""} data-exact><summary>Exact numbers (metres)</summary>
           <div class="nums">
-            ${[["x1", "Left edge"], ["x2", "Right edge"], ["y1", "Near edge"], ["y2", "Far edge"]].map(([k, t]) => `<div><label>${t}</label><input type="number" step="0.05" data-ch="zoneNum" data-k="${k}" value="${m(cur[k])}"></div>`).join("")}
+            ${[["x1", "Left edge"], ["x2", "Right edge"], ["y1", "Near edge"], ["y2", "Far edge"]].map(([k, t]) => `<div><label>${t}</label><input type="number" step="0.05" data-ch="zoneNum" data-k="${esc(k)}" value="${esc(m(cur[k]))}"></div>`).join("")}
           </div>
           <p class="note">Left and right are as seen from the sensor. 0 is straight ahead.</p>
         </details>
@@ -887,17 +900,17 @@ Object.assign(AthomHubPanel.prototype, {
   vMap(sh) {
     const R = 6000, s60 = Math.sin(Math.PI / 3), c60 = Math.cos(Math.PI / 3);
     let grid = "";
-    for (let d = 1000; d <= 7000; d += 1000) grid += `<line x1="-5000" y1="${d}" x2="5000" y2="${d}" stroke="currentColor" stroke-opacity=".08" stroke-width="20"/><text x="-4900" y="${d - 60}" font-size="220" fill="currentColor" fill-opacity=".45">${d / 1000} m</text>`;
-    for (let x = -4000; x <= 4000; x += 1000) grid += `<line x1="${x}" y1="0" x2="${x}" y2="7600" stroke="currentColor" stroke-opacity=".05" stroke-width="20"/>`;
+    for (let d = 1000; d <= 7000; d += 1000) grid += `<line x1="-5000" y1="${esc(d)}" x2="5000" y2="${esc(d)}" stroke="currentColor" stroke-opacity=".08" stroke-width="20"/><text x="-4900" y="${esc(d - 60)}" font-size="220" fill="currentColor" fill-opacity=".45">${d / 1000} m</text>`;
+    for (let x = -4000; x <= 4000; x += 1000) grid += `<line x1="${esc(x)}" y1="0" x2="${esc(x)}" y2="7600" stroke="currentColor" stroke-opacity=".05" stroke-width="20"/>`;
     const fan = `<path d="M0 0 L${R * s60} ${R * c60} A${R} ${R} 0 0 1 ${-R * s60} ${R * c60} Z" fill="url(#fov)" stroke="#8B6CFF" stroke-opacity=".35" stroke-width="25"/>`;
     const zones = [1, 2, 3].map((n) => {
       const z = sh.draft?.[n] || this.zoneOf(sh.id, n);
       if (this.zoneEmpty(z)) return "";
       const x = Math.min(z.x1, z.x2), y = Math.min(z.y1, z.y2), w = Math.abs(z.x2 - z.x1), h = Math.abs(z.y2 - z.y1);
       const on = n === (sh.zone || 1);
-      return `<g id="zone${n}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="80" fill="${ZONE_COLOURS[n - 1]}" fill-opacity="${on ? 0.28 : 0.12}" stroke="${ZONE_COLOURS[n - 1]}" stroke-width="${on ? 50 : 25}" ${on ? "" : 'stroke-dasharray="120 80"'}/>
-        <text x="${x + 120}" y="${y + 300}" font-size="260" font-weight="700" fill="${ZONE_COLOURS[n - 1]}">${n}</text>
-        ${on ? [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="110" fill="#fff" stroke="${ZONE_COLOURS[n - 1]}" stroke-width="40"/>`).join("") : ""}</g>`;
+      return `<g id="zone${n}"><rect x="${esc(x)}" y="${esc(y)}" width="${esc(w)}" height="${esc(h)}" rx="80" fill="${esc(ZONE_COLOURS[n - 1])}" fill-opacity="${esc(on ? 0.28 : 0.12)}" stroke="${esc(ZONE_COLOURS[n - 1])}" stroke-width="${esc(on ? 50 : 25)}" ${on ? "" : 'stroke-dasharray="120 80"'}/>
+        <text x="${esc(x + 120)}" y="${esc(y + 300)}" font-size="260" font-weight="700" fill="${esc(ZONE_COLOURS[n - 1])}">${n}</text>
+        ${on ? [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([cx, cy]) => `<circle cx="${esc(cx)}" cy="${esc(cy)}" r="110" fill="#fff" stroke="${esc(ZONE_COLOURS[n - 1])}" stroke-width="40"/>`).join("") : ""}</g>`;
     }).join("");
     return `<svg class="map" id="map" viewBox="-5000 -400 10000 8100" style="color:var(--tx)">
       <defs><radialGradient id="fov" cx="0.5" cy="0" r="1"><stop offset="0" stop-color="#8B6CFF" stop-opacity=".22"/><stop offset="1" stop-color="#4C8DFF" stop-opacity=".04"/></radialGradient></defs>
@@ -908,7 +921,7 @@ Object.assign(AthomHubPanel.prototype, {
   },
 
   targetDots(devId) {
-    return this.targets(devId).map((t) => `<circle cx="${t.x}" cy="${t.y}" r="330" fill="#FFB84D" fill-opacity=".25"/><circle cx="${t.x}" cy="${t.y}" r="160" fill="#FFB84D" stroke="#fff" stroke-width="40"/>`).join("");
+    return this.targets(devId).map((t) => `<circle cx="${esc(t.x)}" cy="${esc(t.y)}" r="330" fill="#FFB84D" fill-opacity=".25"/><circle cx="${esc(t.x)}" cy="${esc(t.y)}" r="160" fill="#FFB84D" stroke="#fff" stroke-width="40"/>`).join("");
   },
 
   wireMap() {
@@ -1102,7 +1115,7 @@ Object.assign(AthomHubPanel.prototype, {
     if (!sir) { this.loadSir(); return `<div class="sec">Air conditioner code sets</div><div class="card"><p>Looking for code sets…</p></div>`; }
     const conf = sir.configured.map((c, i) => `<div class="ctl"><ha-icon icon="mdi:air-conditioner" style="color:var(--acc);flex:none"></ha-icon>
         <div class="grow"><div class="t">${esc(c.name)}</div><div class="s">${esc(c.maker || "")} ${esc((c.models || []).join(", "))} · code file ${c.code}${c.error ? ` · <span class="bad">${esc(c.error)}</span>` : ""}</div></div>
-        <button class="pill" data-a="acCopyOpen" data-i="${i}" ${c.error ? "disabled" : ""}>Copy</button></div>`).join("");
+        <button class="pill" data-a="acCopyOpen" data-i="${esc(i)}" ${c.error ? "disabled" : ""}>Copy</button></div>`).join("");
     return `<div class="sec">Air conditioner code sets</div>
       <div class="card">
         <p style="margin-top:0">A code set has the code for every setting of an AC (mode, fan and temperature), from SmartIR's shared library. It turns an AC into a full thermostat, and lets Athom Hub follow the real remote.</p>
@@ -1130,7 +1143,7 @@ Object.assign(AthomHubPanel.prototype, {
     return `<h2>Use code set ${sh.code}</h2>
       <p>${esc(sh.maker || "")} ${esc((sh.models || []).join(", "))}</p>
       <label for="acto">Put it on</label>
-      <select id="acto"><option value="">A new remote</option>${acs.map((r) => `<option value="${r.id}" ${sh.remote_id === r.id ? "selected" : ""}>${esc(r.name)} (keeps its buttons)</option>`).join("")}</select>
+      <select id="acto"><option value="">A new remote</option>${acs.map((r) => `<option value="${esc(r.id)}" ${sh.remote_id === r.id ? "selected" : ""}>${esc(r.name)} (keeps its buttons)</option>`).join("")}</select>
       <label for="acname">Name (for a new remote)</label><input id="acname" value="${esc(sh.name || "")}" maxlength="60">
       <label for="acfrom">Sends from</label>
       <select id="acfrom">${this.irSenders().map((p) => `<option value="${esc(p.entity_id)}" ${p.entity_id === sh.emitter ? "selected" : ""}>${esc(p.device_name)}${p.area ? " · " + esc(p.area) : ""}</option>`).join("")}</select>
@@ -1174,7 +1187,7 @@ Object.assign(AthomHubPanel.prototype, {
       }
       return `<h2>Found ${sh.found.length === 1 ? "it" : sh.found.length + " matches"} ✓</h2>
         <p>Your remote sent: <b>${esc(sh.found[0].setting)}</b>.</p>
-        <div class="card" style="padding:4px 16px">${sh.found.map((f) => `<div class="ctl"><div class="grow"><div class="t">Code set ${f.code} · ${esc(f.maker)}</div><div class="s">${esc((f.models || []).join(", "))} · ${f.codes} codes</div></div><button class="pill main" data-a="acUseFound" data-k="${f.code}">Use</button></div>`).join("")}</div>
+        <div class="card" style="padding:4px 16px">${sh.found.map((f) => `<div class="ctl"><div class="grow"><div class="t">Code set ${f.code} · ${esc(f.maker)}</div><div class="s">${esc((f.models || []).join(", "))} · ${f.codes} codes</div></div><button class="pill main" data-a="acUseFound" data-k="${esc(f.code)}">Use</button></div>`).join("")}</div>
         <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="pill" data-a="close">Close</button></div>`;
     }
     if (sh.step === "error") return `<h2>That did not work</h2><p>${esc(sh.why)}</p><div class="row" style="justify-content:flex-end"><button class="pill" data-a="close">Close</button></div>`;
@@ -1245,13 +1258,13 @@ Object.assign(AthomHubPanel.prototype, {
     const l = sm.live || {};
     if (!l.running) return `<div class="smlive" id="smlive"><span>${sm.set.enabled ? "Press Save to start" : "Off"}</span></div>`;
     const zones = sm.set.zones.filter((z) => z.kind === "detect");
-    return `<div class="smlive" id="smlive"><span class="${l.room ? "on" : ""}">Room: ${l.room ? `someone there · ${l.counts?.room || 0}` : "empty"}</span>${zones.map((z) => `<span class="${l.zones?.[z.id] ? "on" : ""}">${esc(z.name)}: ${l.zones?.[z.id] ? "someone" : "empty"}</span>`).join("")}</div>`;
+    return `<div class="smlive" id="smlive"><span class="${esc(l.room ? "on" : "")}">Room: ${l.room ? `someone there · ${l.counts?.room || 0}` : "empty"}</span>${zones.map((z) => `<span class="${esc(l.zones?.[z.id] ? "on" : "")}">${esc(z.name)}: ${l.zones?.[z.id] ? "someone" : "empty"}</span>`).join("")}</div>`;
   },
 
   smartDots(sh) {
     const people = sh.smart?.live?.people;
     const list = people || this.targets(sh.id).map((t) => ({ ...t, counted: true }));
-    return list.map((t) => `<circle cx="${t.x}" cy="${Math.abs(t.y)}" r="300" fill="${t.counted ? "#FFB84D" : "#9AA0B4"}" fill-opacity=".25"/><circle cx="${t.x}" cy="${Math.abs(t.y)}" r="150" fill="${t.counted ? "#FFB84D" : "#9AA0B4"}" stroke="#fff" stroke-width="40"/>${t.why ? `<text x="${t.x + 220}" y="${Math.abs(t.y) - 200}" font-size="200" fill="currentColor" fill-opacity=".7">${esc(t.why)}</text>` : ""}`).join("");
+    return list.map((t) => `<circle cx="${esc(t.x)}" cy="${esc(Math.abs(t.y))}" r="300" fill="${esc(t.counted ? "#FFB84D" : "#9AA0B4")}" fill-opacity=".25"/><circle cx="${esc(t.x)}" cy="${esc(Math.abs(t.y))}" r="150" fill="${esc(t.counted ? "#FFB84D" : "#9AA0B4")}" stroke="#fff" stroke-width="40"/>${t.why ? `<text x="${esc(t.x + 220)}" y="${esc(Math.abs(t.y) - 200)}" font-size="200" fill="currentColor" fill-opacity=".7">${esc(t.why)}</text>` : ""}`).join("");
   },
 
   vSmart(sh) {
@@ -1261,7 +1274,7 @@ Object.assign(AthomHubPanel.prototype, {
     const S = sm.set, pick = sm.pick;
     const zone = S.zones.find((z) => z.id === pick);
     const m = (v) => (v / 1000).toFixed(2);
-    const chip = (id, label, colour) => `<button class="zchip ${pick === id ? "on" : ""}" style="--zc:${colour}" data-a="smPick" data-k="${id}"><span class="sw2"></span>${esc(label)}</button>`;
+    const chip = (id, label, colour) => `<button class="zchip ${pick === id ? "on" : ""}" style="--zc:${colour}" data-a="smPick" data-k="${esc(id)}"><span class="sw2"></span>${esc(label)}</button>`;
     const zi = (z) => S.zones.indexOf(z);
     return `<div class="sec">Smart presence</div>
       <div class="card">
@@ -1273,21 +1286,21 @@ Object.assign(AthomHubPanel.prototype, {
         ${this.vSmartMap(sh)}
         <p class="note">${pick === "room" ? "Drag on the map to draw the room's walls. People outside it are not counted." : zone?.kind === "ignore" ? "Draw around a fan, a curtain or a plant. Movement there is not counted." : "Drag on the map to draw this zone. Drag inside it to move it, or a corner to resize it."} Grey dots are not counted, with the reason next to them.</p>
         ${pick === "room" ? `
-          <div class="ctl"><div class="grow"><div class="t">Furthest it looks</div><div class="s">People further than this are ignored.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" step="0.5" min="0.5" max="8" data-ch="smRange" value="${m(S.range)}" style="max-width:100px"><span class="note" style="margin:0">m</span></span></div>
+          <div class="ctl"><div class="grow"><div class="t">Furthest it looks</div><div class="s">People further than this are ignored.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" step="0.5" min="0.5" max="8" data-ch="smRange" value="${esc(m(S.range))}" style="max-width:100px"><span class="note" style="margin:0">m</span></span></div>
           ${S.room ? `<div class="row"><button class="pill" data-a="smNoRoom">Remove the room shape</button></div>` : ""}`
         : zone ? `
           <div class="ctl"><div class="grow"><div class="t">Name</div></div><input type="text" data-ch="smName" value="${esc(zone.name)}" style="max-width:200px"></div>
-          ${zone.kind === "detect" ? `<div class="ctl"><div class="grow"><div class="t">Wait before “empty”</div><div class="s">Seconds with nobody here before it says empty.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="3600" step="1" data-ch="smZoneOff" value="${zone.off_delay}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>` : ""}
+          ${zone.kind === "detect" ? `<div class="ctl"><div class="grow"><div class="t">Wait before “empty”</div><div class="s">Seconds with nobody here before it says empty.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="3600" step="1" data-ch="smZoneOff" value="${esc(zone.off_delay)}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>` : ""}
           <div class="row"><button class="pill danger" data-a="smDel">Remove ${esc(zone.name)}</button></div>` : ""}
         <details ${sh.smExact ? "open" : ""} data-smexact><summary>Exact numbers (metres)</summary>
-          <div class="nums">${[["x1", "Left edge"], ["x2", "Right edge"], ["y1", "Near edge"], ["y2", "Far edge"]].map(([k, t]) => { const b = pick === "room" ? S.room : zone; return `<div><label>${t}</label><input type="number" step="0.05" data-ch="smEdge" data-k="${k}" value="${b ? m(b[k]) : ""}"></div>`; }).join("")}</div>
+          <div class="nums">${[["x1", "Left edge"], ["x2", "Right edge"], ["y1", "Near edge"], ["y2", "Far edge"]].map(([k, t]) => { const b = pick === "room" ? S.room : zone; return `<div><label>${t}</label><input type="number" step="0.05" data-ch="smEdge" data-k="${esc(k)}" value="${esc(b ? m(b[k]) : "")}"></div>`; }).join("")}</div>
           <p class="note">Left and right are as seen from the sensor. 0 is straight ahead.</p>
         </details>
         <div class="sec" style="margin-top:14px">How it decides</div>
-        <div class="ctl"><div class="grow"><div class="t">Must walk in at least</div><div class="s">A new person must move this far before the room counts as taken. Stops fans and curtains from turning it on. 0 is off.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="150" step="5" data-ch="smMove" value="${Math.round(S.min_move / 10)}" style="max-width:100px"><span class="note" style="margin:0">cm</span></span></div>
+        <div class="ctl"><div class="grow"><div class="t">Must walk in at least</div><div class="s">A new person must move this far before the room counts as taken. Stops fans and curtains from turning it on. 0 is off.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="150" step="5" data-ch="smMove" value="${esc(Math.round(S.min_move / 10))}" style="max-width:100px"><span class="note" style="margin:0">cm</span></span></div>
         <div class="ctl"><div class="grow"><div class="t">Use the motion sensor too</div><div class="s">Movement it feels also counts as someone there.</div></div><button class="tog ${S.use_pir ? "on" : ""}" data-a="smPir" aria-label="Use the motion sensor too"></button></div>
-        <div class="ctl"><div class="grow"><div class="t">Wait before “someone there”</div><div class="s">Seconds someone must stay before it turns on. 0 is right away.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="60" step="1" data-ch="smOn" value="${S.on_delay}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>
-        <div class="ctl"><div class="grow"><div class="t">Wait before “empty”</div><div class="s">Seconds with nobody before the room counts as empty.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="3600" step="5" data-ch="smOff" value="${S.off_delay}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>` : ""}
+        <div class="ctl"><div class="grow"><div class="t">Wait before “someone there”</div><div class="s">Seconds someone must stay before it turns on. 0 is right away.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="60" step="1" data-ch="smOn" value="${esc(S.on_delay)}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>
+        <div class="ctl"><div class="grow"><div class="t">Wait before “empty”</div><div class="s">Seconds with nobody before the room counts as empty.</div></div><span class="row" style="flex-wrap:nowrap;gap:6px"><input type="number" min="0" max="3600" step="5" data-ch="smOff" value="${esc(S.off_delay)}" style="max-width:100px"><span class="note" style="margin:0">s</span></span></div>` : ""}
         <div class="row" style="margin-top:12px"><button class="pill main" data-a="smSave" ${sm.dirty ? "" : "disabled"}>Save smart presence</button>${sm.dirty ? `<button class="pill" data-a="smUndo">Undo</button>` : ""}</div>
       </div>`;
   },
@@ -1295,16 +1308,16 @@ Object.assign(AthomHubPanel.prototype, {
   vSmartMap(sh) {
     const S = sh.smart.set, R = S.range, s60 = Math.sin(Math.PI / 3), c60 = Math.cos(Math.PI / 3);
     let grid = "";
-    for (let d = 1000; d <= 7000; d += 1000) grid += `<line x1="-5000" y1="${d}" x2="5000" y2="${d}" stroke="currentColor" stroke-opacity=".08" stroke-width="20"/><text x="-4900" y="${d - 60}" font-size="220" fill="currentColor" fill-opacity=".45">${d / 1000} m</text>`;
+    for (let d = 1000; d <= 7000; d += 1000) grid += `<line x1="-5000" y1="${esc(d)}" x2="5000" y2="${esc(d)}" stroke="currentColor" stroke-opacity=".08" stroke-width="20"/><text x="-4900" y="${esc(d - 60)}" font-size="220" fill="currentColor" fill-opacity=".45">${d / 1000} m</text>`;
     const fan = `<path d="M0 0 L${R * s60} ${R * c60} A${R} ${R} 0 0 1 ${-R * s60} ${R * c60} Z" fill="#8B6CFF" fill-opacity=".08" stroke="#8B6CFF" stroke-opacity=".5" stroke-width="25" stroke-dasharray="100 70"/>`;
     const rect = (b, colour, on, label, ignore) => {
       if (!b) return "";
       const x = b.x1, y = b.y1, w = b.x2 - b.x1, h = b.y2 - b.y1;
-      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="60" fill="${ignore ? "url(#smhatch)" : colour}" fill-opacity="${ignore ? 1 : on ? 0.24 : 0.1}" stroke="${colour}" stroke-width="${on ? 50 : 25}" ${on ? "" : 'stroke-dasharray="120 80"'}/>
-        <text x="${x + 120}" y="${y + 300}" font-size="230" font-weight="700" fill="${colour}">${esc(label)}</text>
-        ${on ? [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="110" fill="#fff" stroke="${colour}" stroke-width="40"/>`).join("") : ""}`;
+      return `<rect x="${esc(x)}" y="${esc(y)}" width="${esc(w)}" height="${esc(h)}" rx="60" fill="${esc(ignore ? "url(#smhatch)" : colour)}" fill-opacity="${esc(ignore ? 1 : on ? 0.24 : 0.1)}" stroke="${esc(colour)}" stroke-width="${esc(on ? 50 : 25)}" ${on ? "" : 'stroke-dasharray="120 80"'}/>
+        <text x="${esc(x + 120)}" y="${esc(y + 300)}" font-size="230" font-weight="700" fill="${esc(colour)}">${esc(label)}</text>
+        ${on ? [[x, y], [x + w, y], [x, y + h], [x + w, y + h]].map(([cx, cy]) => `<circle cx="${esc(cx)}" cy="${esc(cy)}" r="110" fill="#fff" stroke="${esc(colour)}" stroke-width="40"/>`).join("") : ""}`;
     };
-    const room = S.room ? `<rect x="${S.room.x1}" y="${S.room.y1}" width="${S.room.x2 - S.room.x1}" height="${S.room.y2 - S.room.y1}" fill="none" stroke="currentColor" stroke-opacity=".85" stroke-width="${sh.smart.pick === "room" ? 70 : 45}"/>${sh.smart.pick === "room" ? [[S.room.x1, S.room.y1], [S.room.x2, S.room.y1], [S.room.x1, S.room.y2], [S.room.x2, S.room.y2]].map(([cx, cy]) => `<circle cx="${cx}" cy="${cy}" r="110" fill="#fff" stroke="#8B6CFF" stroke-width="40"/>`).join("") : ""}` : "";
+    const room = S.room ? `<rect x="${esc(S.room.x1)}" y="${esc(S.room.y1)}" width="${esc(S.room.x2 - S.room.x1)}" height="${esc(S.room.y2 - S.room.y1)}" fill="none" stroke="currentColor" stroke-opacity=".85" stroke-width="${esc(sh.smart.pick === "room" ? 70 : 45)}"/>${sh.smart.pick === "room" ? [[S.room.x1, S.room.y1], [S.room.x2, S.room.y1], [S.room.x1, S.room.y2], [S.room.x2, S.room.y2]].map(([cx, cy]) => `<circle cx="${esc(cx)}" cy="${esc(cy)}" r="110" fill="#fff" stroke="#8B6CFF" stroke-width="40"/>`).join("") : ""}` : "";
     const zones = S.zones.map((z, i) => rect(z, z.kind === "ignore" ? "#9AA0B4" : SMART_COLOURS[i % 8], z.id === sh.smart.pick, z.name, z.kind === "ignore")).join("");
     return `<svg class="map" id="smap" viewBox="-5000 -400 10000 8100" style="color:var(--tx)">
       <defs><pattern id="smhatch" width="200" height="200" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="200" height="200" fill="#9AA0B4" fill-opacity=".08"/><line x1="0" y1="0" x2="0" y2="200" stroke="#9AA0B4" stroke-opacity=".5" stroke-width="40"/></pattern></defs>

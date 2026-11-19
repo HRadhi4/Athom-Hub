@@ -24,4 +24,4 @@
 
 ![The Athom Hub page](https://raw.githubusercontent.com/HRadhi4/Athom-Hub/main/docs/images/remotes.png)
 
-**Next:** [Copy your Broadlink remotes →](02-copy-broadlink.md) or [Learn a button →](03-learn-a-button.md)
+**Next:** [Bring in your Broadlink codes →](02-copy-broadlink.md) or [Learn a button →](03-learn-a-button.md)

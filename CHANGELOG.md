@@ -2,6 +2,10 @@
 
 Every version of Athom Hub, newest first. Install or update from HACS, or copy the `custom_components/athom_hub` folder and restart Home Assistant.
 
+## 0.8.0 — 2026-11-19
+- **Broadlink codes are now pasted or chosen from a file.** Paste the codes a Broadlink learned (one per line, like `power: JgBQ…`, or `b64:` codes), or choose a saved file of codes, then copy each remote in one tap. Athom Hub no longer looks inside the Broadlink integration's own storage.
+- **Safer backups and pages.** Restoring a backup only keeps ids in Athom Hub's own format and real entity ids, and every value shown on the Athom Hub page is escaped, so a doctored backup file cannot change the page.
+
 ## 0.7.3 — 2026-11-19
 - Fix: the remotes' tidy-up removed the smart presence sensors. They now stay.
 

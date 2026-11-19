@@ -109,3 +109,22 @@ def test_swapped_radio_capture_is_put_right():
     assert codes.normalize_capture(flipped)[0] > 0
     assert codes.heard_frame([codes.normalize_capture(flipped)], rf)
     assert codes.normalize_capture([900, 450, 560]) == [900, -450, 560]
+
+
+def test_pasted_broadlink_lines_become_one_remote():
+    text = f"power: {NEC_BROADLINK}\nvolume up = b64:{NEC_BROADLINK}\n{NEC_BROADLINK}\nnot a code\n"
+    [(name, cmds)] = codes.parse_broadlink(text)
+    assert name == "Pasted remote" and list(cmds) == ["power", "volume up", "Button 3"]
+    assert codes.broadlink_decode(cmds["volume up"])["kind"] == "ir"
+
+
+def test_a_saved_file_of_broadlink_codes():
+    import json
+    text = json.dumps({"data": {"living_tv": {"power": NEC_BROADLINK, "vol": [NEC_BROADLINK, NEC_BROADLINK]}, "empty": {}}})
+    found = codes.parse_broadlink(text)
+    assert [n for n, _ in found] == ["living_tv"]
+    assert [label for label, _ in codes.each_code(found[0][1])] == ["power", "vol 1", "vol 2"]
+
+
+def test_nothing_to_read():
+    assert codes.parse_broadlink("") == [] and codes.parse_broadlink("hello\nworld") == []
